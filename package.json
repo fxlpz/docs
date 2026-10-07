@@ -1,0 +1,34 @@
+{
+  "name": "krndocs",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Plataforma privada de documentação da equipe de Cybersegurança - Kernel Solutions",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "node scripts/run24.mjs 'npm run build:shared && node scripts/dev.mjs'",
+    "build:shared": "npm run build --workspace @krndocs/shared",
+    "build": "node scripts/run24.mjs 'npm run build:shared && npm run build --workspace @krndocs/api && npm run build --workspace @krndocs/web'",
+    "typecheck": "node scripts/run24.mjs 'npm run build:shared && npm run typecheck --workspaces --if-present'",
+    "test": "node scripts/run24.mjs 'npm run build:shared && npm run test --workspaces --if-present'",
+    "lint": "biome check .",
+    "lint:fix": "biome check --write .",
+    "format": "biome format --write .",
+    "migrate": "node scripts/run24.mjs 'npm run migrate --workspace @krndocs/api'",
+    "provision": "node scripts/run24.mjs 'npm run provision --workspace @krndocs/api'"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^2.5.15",
+    "typescript": "^5.9.3"
+  },
+  "allowScripts": {
+    "argon2": false,
+    "better-sqlite3": false
+  }
+}

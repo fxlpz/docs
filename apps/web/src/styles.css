@@ -1,0 +1,36 @@
+@import "tailwindcss";
+
+/*
+ * Tema claro/escuro por classe em <html> ("dark").
+ * Os tokens abaixo são a base da identidade visual própria do KernelDocs.
+ */
+:root {
+  --kd-bg: #f7f8fa;
+  --kd-surface: #ffffff;
+  --kd-border: #e2e5ea;
+  --kd-text: #14181f;
+  --kd-muted: #5b6472;
+  --kd-accent: #0f6f4f;
+}
+
+.dark {
+  --kd-bg: #0f1319;
+  --kd-surface: #161b23;
+  --kd-border: #262d38;
+  --kd-text: #e7eaef;
+  --kd-muted: #97a1b0;
+  --kd-accent: #38c08a;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--kd-bg);
+  color: var(--kd-text);
+  font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}

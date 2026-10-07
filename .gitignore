@@ -1,0 +1,28 @@
+# Dependências
+node_modules/
+
+# Artefatos de build
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Dados locais da aplicação (banco SQLite + anexos) - nunca versionar
+var/
+*.db
+*.db-wal
+*.db-shm
+
+# Segredos e ambiente local
+.env
+.env.local
+.env.*.local
+
+# Logs e SO
+*.log
+npm-debug.log*
+.DS_Store
+
+# Testes E2E (futuro)
+playwright-report/
+test-results/

@@ -1,0 +1,101 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "share": "manual",
+  "default_agent": "build",
+  "compaction": {
+    "auto": true,
+    "keep": {
+      "tokens": 15000
+    },
+    "buffer": 20000
+  },
+  "watcher": {
+    "ignore": [
+      "node_modules/**",
+      "dist/**",
+      "build/**",
+      "coverage/**",
+      "var/**",
+      "**/*.db",
+      "**/*.db-wal",
+      "**/*.db-shm",
+      "**/*.tsbuildinfo",
+      "package-lock.json"
+    ]
+  },
+  "permissions": [
+    { "action": "read", "resource": "*", "effect": "allow" },
+    { "action": "glob", "resource": "*", "effect": "allow" },
+    { "action": "grep", "resource": "*", "effect": "allow" },
+    { "action": "webfetch", "resource": "*", "effect": "ask" },
+    { "action": "websearch", "resource": "*", "effect": "ask" },
+
+    { "action": "shell", "resource": "*", "effect": "ask" },
+    { "action": "edit", "resource": "*", "effect": "ask" },
+    { "action": "external_directory", "resource": "*", "effect": "deny" },
+
+    { "action": "shell", "resource": "npm run lint*", "effect": "allow" },
+    { "action": "shell", "resource": "npm run typecheck*", "effect": "allow" },
+    { "action": "shell", "resource": "npm run test*", "effect": "allow" },
+    { "action": "shell", "resource": "npm test*", "effect": "allow" },
+    { "action": "shell", "resource": "npm run build*", "effect": "allow" },
+    { "action": "shell", "resource": "npm run format*", "effect": "allow" },
+    { "action": "shell", "resource": "npm install*", "effect": "ask" },
+    { "action": "shell", "resource": "npm audit*", "effect": "allow" },
+    { "action": "shell", "resource": "node --version", "effect": "allow" },
+    { "action": "shell", "resource": "git status*", "effect": "allow" },
+    { "action": "shell", "resource": "git diff*", "effect": "allow" },
+    { "action": "shell", "resource": "git log*", "effect": "allow" },
+
+    { "action": "shell", "resource": "git commit*", "effect": "ask" },
+    { "action": "shell", "resource": "git push*", "effect": "ask" },
+    { "action": "shell", "resource": "git add*", "effect": "ask" },
+    { "action": "shell", "resource": "sudo *", "effect": "ask" },
+    { "action": "shell", "resource": "rm *", "effect": "ask" },
+    { "action": "shell", "resource": "mv *", "effect": "ask" },
+    { "action": "shell", "resource": "chmod *", "effect": "ask" },
+    { "action": "shell", "resource": "chown *", "effect": "ask" },
+    { "action": "shell", "resource": "systemctl *", "effect": "ask" },
+    { "action": "shell", "resource": "service *", "effect": "ask" },
+    { "action": "shell", "resource": "ufw *", "effect": "ask" },
+    { "action": "shell", "resource": "crontab*", "effect": "ask" },
+    { "action": "shell", "resource": "curl*", "effect": "ask" },
+    { "action": "shell", "resource": "wget*", "effect": "ask" },
+    { "action": "shell", "resource": "docker*", "effect": "deny" },
+    { "action": "shell", "resource": "smb*", "effect": "deny" },
+    { "action": "shell", "resource": "systemd-analyze*", "effect": "ask" },
+
+    { "action": "read", "resource": "*.env", "effect": "deny" },
+    { "action": "read", "resource": "*.env.*", "effect": "deny" },
+    { "action": "read", "resource": "*.env.example", "effect": "allow" },
+    { "action": "read", "resource": "secrets/**", "effect": "deny" },
+    { "action": "read", "resource": "**/*.pem", "effect": "deny" },
+    { "action": "read", "resource": "**/*.key", "effect": "deny" },
+    { "action": "read", "resource": "**/id_rsa*", "effect": "deny" },
+    { "action": "read", "resource": "**/id_ed25519*", "effect": "deny" },
+    { "action": "read", "resource": "**/*.sqlite", "effect": "deny" },
+    { "action": "read", "resource": "var/**", "effect": "deny" },
+    { "action": "read", "resource": "**/Obisidian*/**", "effect": "deny" },
+    { "action": "edit", "resource": "*.env", "effect": "deny" },
+    { "action": "edit", "resource": "migrations/*.sql", "effect": "ask" },
+    { "action": "edit", "resource": "AGENTS.md", "effect": "ask" },
+    { "action": "edit", "resource": "opencode.json", "effect": "ask" }
+  ],
+  "commands": {
+    "feature": {
+      "description": "Implementa uma funcionalidade completa com testes",
+      "agent": "build",
+      "template": "Implemente a funcionalidade descrita em: $ARGUMENTS\n\nRegras obrigatórias:\n1. Leia os arquivos relacionados antes de alterar qualquer coisa.\n2. Implemente seguindo a arquitetura existente (rotas -> serviços -> persistência).\n3. Escreva/atualize testes cobrindo o comportamento novo, incluindo caso de acesso não autorizado quando aplicável.\n4. Execute: npm run lint && npm run typecheck && npm run test\n5. Só declare sucesso se todas as verificações passarem.\n6. Ao final, informe: alterações feitas, testes executados, falhas e pendências.\n\nNão implemente nada fora do escopo pedido sem justificar."
+    },
+    "validar": {
+      "description": "Executa todas as verificações do projeto (lint, tipos, testes, build)",
+      "agent": "build",
+      "template": "Execute as verificações completas do projeto e relate o resultado.\n\n1. npm run lint\n2. npm run typecheck\n3. npm run test\n4. npm run build\n\nPara cada verificação, reporte: PASSOU ou FALHOU, com o erro relevante em caso de falha.\nNão corrija arquivos automaticamente: apenas reporte (use /revisar para análise e /feature para correções).\nSe tudo passar, confirme com o resumo final."
+    },
+    "revisar": {
+      "description": "Revisa alterações sem modificar arquivos",
+      "agent": "plan",
+      "template": "Revise as alterações atuais sem modificar nenhum arquivo.\n\nFoque em:\n1. Segurança: validação no servidor, autorização em toda rota, injeção, XSS, upload inseguro, vazamento em logs.\n2. Correção: erros de lógica, condições de corrida, tratamento de falhas de rede/salvamento.\n3. Contratos: divergência entre schemas compartilhados e uso real na API/Web.\n4. Testes: casos de acesso não autorizado, conflito de versão, lixeira e restauração faltando.\n5. Convenções: estrutura de camadas, nomes e padrões existentes.\n\nEntregue os achados em ordem de severidade, com arquivo e linha. Não edite nada."
+    }
+  }
+}
