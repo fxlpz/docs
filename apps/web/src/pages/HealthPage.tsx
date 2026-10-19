@@ -1,5 +1,7 @@
 import { type HealthResponse, healthResponseSchema } from '@krndocs/shared';
 import { useCallback, useEffect, useState } from 'react';
+import { BrandMark } from '../components/Brand.js';
+import { ThemeToggle } from '../components/ThemeToggle.js';
 
 /**
  * Tela inicial de diagnóstico da Etapa 1.
@@ -18,15 +20,6 @@ type Status =
 
 export function HealthPage(): React.JSX.Element {
   const [status, setStatus] = useState<Status>({ kind: 'loading' });
-  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
-    const stored = localStorage.getItem('kd-theme');
-    return stored === 'dark' ? 'dark' : 'light';
-  });
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-    localStorage.setItem('kd-theme', theme);
-  }, [theme]);
 
   const loadHealth = useCallback(async () => {
     setStatus({ kind: 'loading' });
@@ -61,21 +54,19 @@ export function HealthPage(): React.JSX.Element {
   }, [loadHealth]);
 
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-6 p-6">
-      <header className="text-center">
+    <div className="relative flex min-h-full flex-col items-center justify-center gap-6 p-6">
+      <div aria-hidden="true" className="kd-landing-bg" />
+      <header className="relative text-center">
+        <span className="kd-landing-emblem mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl">
+          <BrandMark size={22} />
+        </span>
         <h1 className="text-2xl font-semibold tracking-tight">KernelDocs</h1>
         <p className="text-sm" style={{ color: 'var(--kd-muted)' }}>
           Documentação privada — Equipe de Cybersegurança · Kernel Solutions
         </p>
       </header>
 
-      <main
-        className="w-full max-w-lg rounded-xl border p-5"
-        style={{
-          borderColor: 'var(--kd-border)',
-          background: 'var(--kd-surface)',
-        }}
-      >
+      <main className="kd-card mx-auto w-full max-w-lg p-5">
         {status.kind === 'loading' && (
           <div role="status" className="flex items-center gap-3 text-sm">
             <span
@@ -88,18 +79,13 @@ export function HealthPage(): React.JSX.Element {
 
         {status.kind === 'error' && (
           <div role="alert" className="space-y-3">
-            <p className="text-sm font-medium" style={{ color: '#c0392b' }}>
+            <p className="text-sm font-medium" style={{ color: 'var(--kd-danger)' }}>
               Falha ao consultar a API
             </p>
             <p className="text-sm" style={{ color: 'var(--kd-muted)' }}>
               {status.message}
             </p>
-            <button
-              type="button"
-              onClick={() => void loadHealth()}
-              className="rounded-md border px-3 py-1.5 text-sm"
-              style={{ borderColor: 'var(--kd-border)' }}
-            >
+            <button type="button" onClick={() => void loadHealth()} className="kd-btn kd-btn-ghost">
               Tentar novamente
             </button>
           </div>
@@ -108,12 +94,8 @@ export function HealthPage(): React.JSX.Element {
         {status.kind === 'ready' && (
           <dl className="space-y-2 text-sm">
             {status.health.status === 'degraded' && (
-              <div
-                role="alert"
-                className="rounded-md border p-2"
-                style={{ borderColor: '#c0392b' }}
-              >
-                <p className="text-sm font-medium" style={{ color: '#c0392b' }}>
+              <div role="alert" className="kd-alert-error">
+                <p className="text-sm font-medium">
                   API degradada — o banco de dados não respondeu.
                 </p>
               </div>
@@ -141,21 +123,8 @@ export function HealthPage(): React.JSX.Element {
       </main>
 
       <footer className="flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-          className="rounded-md border px-3 py-1.5 text-sm"
-          style={{ borderColor: 'var(--kd-border)' }}
-          aria-pressed={theme === 'dark'}
-        >
-          {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
-        </button>
-        <button
-          type="button"
-          onClick={() => void loadHealth()}
-          className="rounded-md border px-3 py-1.5 text-sm"
-          style={{ borderColor: 'var(--kd-border)' }}
-        >
+        <ThemeToggle className="px-3 py-1.5 text-sm" />
+        <button type="button" onClick={() => void loadHealth()} className="kd-btn kd-btn-ghost">
           Atualizar status
         </button>
       </footer>

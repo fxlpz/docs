@@ -21,6 +21,14 @@ const envSchema = z.object({
     .enum(['true', 'false'])
     .default('false')
     .transform((value) => value === 'true'),
+  /**
+   * Serve o front pronto (`apps/web/dist`) na mesma origem (produção em
+   * loopback). Padrão: ligado em produção, desligado em dev/teste (Vite).
+   */
+  SERVE_STATIC: z
+    .enum(['true', 'false'])
+    .default('false')
+    .transform((value) => value === 'true'),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -53,4 +61,9 @@ export function loadEnv(source: NodeJS.ProcessEnv = process.env): Env {
     console.warn('[aviso] COOKIE_SECURE=false em produção. Use apenas atrás de HTTPS aprovado.');
   }
   return env;
+}
+
+/** Front estático ativo: explícito ou implícito em produção. */
+export function serveStaticEnabled(env: Env): boolean {
+  return env.SERVE_STATIC || env.NODE_ENV === 'production';
 }

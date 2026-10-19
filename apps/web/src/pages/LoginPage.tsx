@@ -1,11 +1,22 @@
+import { Check, Lock, User } from 'lucide-react';
 import { type FormEvent, useEffect, useState } from 'react';
-import { Navigate, useNavigate } from 'react-router-dom';
+import { Link, Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { BrandMark } from '../components/Brand.js';
+import { ThemeToggle } from '../components/ThemeToggle.js';
 import { ApiError } from '../lib/api';
 
+/** Selos do painel de marca (afirmações reais sobre o produto). */
+const LOGIN_HIGHLIGHTS = [
+  'Acesso restrito e auditado',
+  'Conteúdo interno da equipe',
+  'Publicação controlada pela administração',
+];
+
 /**
- * Tela de login (Etapa 2). Sem cadastro público: apenas usuários
+ * Tela de login. Sem cadastro público: apenas usuários
  * provisionados entram. Mensagens de erro nunca revelam se a conta existe.
+ * (Só o visual mudou — fluxo, contratos e guardas intactos.)
  */
 export function LoginPage(): React.JSX.Element {
   const { status, mustChangePassword, login } = useAuth();
@@ -17,7 +28,7 @@ export function LoginPage(): React.JSX.Element {
 
   useEffect(() => {
     if (status === 'authed')
-      navigate(mustChangePassword ? '/trocar-senha' : '/', { replace: true });
+      navigate(mustChangePassword ? '/trocar-senha' : '/app', { replace: true });
   }, [status, mustChangePassword, navigate]);
 
   if (status === 'loading') {
@@ -50,77 +61,126 @@ export function LoginPage(): React.JSX.Element {
   }
 
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-6 p-6">
-      <header className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">KernelDocs</h1>
-        <p className="text-sm" style={{ color: 'var(--kd-muted)' }}>
-          Documentação privada — Equipe de Cybersegurança · Kernel Solutions
-        </p>
-      </header>
+    <div className="relative flex min-h-full items-center justify-center p-6">
+      <div aria-hidden="true" className="kd-landing-bg" />
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
+      <div className="kd-card relative grid w-full max-w-3xl overflow-hidden !rounded-2xl !p-0 sm:grid-cols-2">
+        {/* Branding */}
+        <div
+          className="relative hidden flex-col justify-between gap-8 overflow-hidden p-8 sm:flex"
+          style={{ background: 'var(--kd-surface-2)' }}
+        >
+          <div aria-hidden="true" className="kd-home-glow" />
 
-      <main
-        className="w-full max-w-sm rounded-xl border p-5"
-        style={{ borderColor: 'var(--kd-border)', background: 'var(--kd-surface)' }}
-      >
-        <h2 className="mb-4 text-sm font-medium">Entrar</h2>
-
-        {error && (
-          <div
-            role="alert"
-            className="mb-4 rounded-md border p-2 text-sm"
-            style={{ borderColor: '#c0392b', color: '#c0392b' }}
-          >
-            {error}
+          <div className="relative flex items-center gap-2">
+            <BrandMark size={24} />
+            <span className="text-lg font-semibold tracking-tight">KernelDocs</span>
           </div>
-        )}
 
-        <form onSubmit={(event) => void handleSubmit(event)} className="space-y-3">
-          <label className="block text-sm">
-            <span className="mb-1 block" style={{ color: 'var(--kd-muted)' }}>
-              Usuário
-            </span>
-            <input
-              type="text"
-              name="username"
-              autoComplete="username"
-              required
-              value={username}
-              onChange={(event) => setUsername(event.target.value)}
-              className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
-              style={{ borderColor: 'var(--kd-border)', color: 'var(--kd-text)' }}
-            />
-          </label>
+          <div className="relative">
+            <p className="mb-2 text-xl leading-snug font-semibold">
+              Documentação da equipe de <span className="kd-gradient-text">Cybersegurança</span>
+            </p>
+            <p className="text-sm" style={{ color: 'var(--kd-muted)' }}>
+              Base interna de conhecimento da Kernel Solutions — runbooks, guias e procedimentos.
+            </p>
+            <ul className="mt-5 space-y-2 text-xs" style={{ color: 'var(--kd-muted)' }}>
+              {LOGIN_HIGHLIGHTS.map((item) => (
+                <li key={item} className="flex items-center gap-2">
+                  <Check size={13} aria-hidden="true" style={{ color: 'var(--kd-accent)' }} />
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </div>
 
-          <label className="block text-sm">
-            <span className="mb-1 block" style={{ color: 'var(--kd-muted)' }}>
-              Senha
-            </span>
-            <input
-              type="password"
-              name="password"
-              autoComplete="current-password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              className="w-full rounded-md border bg-transparent px-3 py-2 text-sm"
-              style={{ borderColor: 'var(--kd-border)', color: 'var(--kd-text)' }}
-            />
-          </label>
-
-          <button
-            type="submit"
-            disabled={submitting}
-            className="w-full rounded-md px-3 py-2 text-sm font-medium disabled:opacity-60"
-            style={{ background: 'var(--kd-accent)', color: '#ffffff' }}
+          <p
+            className="relative flex items-center gap-1.5 text-xs"
+            style={{ color: 'var(--kd-muted)' }}
           >
-            {submitting ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
-      </main>
+            <Lock size={13} aria-hidden="true" style={{ color: 'var(--kd-accent)' }} />
+            Entrada com usuário provisionado pela equipe
+          </p>
+        </div>
 
-      <footer className="text-xs" style={{ color: 'var(--kd-muted)' }}>
-        Acesso restrito à equipe. Tentativas são auditadas.
-      </footer>
+        {/* Formulário */}
+        <main className="p-6 sm:p-8">
+          <h1 className="mb-1 text-xl font-semibold tracking-tight">Entrar</h1>
+          <p className="mb-5 text-sm" style={{ color: 'var(--kd-muted)' }}>
+            Use sua conta provisionada pela equipe.
+          </p>
+
+          {error && (
+            <div role="alert" className="kd-alert-error mb-4">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={(event) => void handleSubmit(event)} className="space-y-3">
+            <label className="block text-sm">
+              <span className="mb-1 block" style={{ color: 'var(--kd-muted)' }}>
+                Usuário
+              </span>
+              <span className="relative block">
+                <User
+                  size={15}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                  style={{ color: 'var(--kd-muted)' }}
+                />
+                <input
+                  type="text"
+                  name="username"
+                  autoComplete="username"
+                  required
+                  value={username}
+                  onChange={(event) => setUsername(event.target.value)}
+                  className="kd-input kd-input-icon"
+                />
+              </span>
+            </label>
+
+            <label className="block text-sm">
+              <span className="mb-1 block" style={{ color: 'var(--kd-muted)' }}>
+                Senha
+              </span>
+              <span className="relative block">
+                <Lock
+                  size={15}
+                  aria-hidden="true"
+                  className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2"
+                  style={{ color: 'var(--kd-muted)' }}
+                />
+                <input
+                  type="password"
+                  name="password"
+                  autoComplete="current-password"
+                  required
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  className="kd-input kd-input-icon"
+                />
+              </span>
+            </label>
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="kd-btn kd-btn-primary kd-btn-block"
+            >
+              {submitting ? 'Entrando…' : 'Entrar'}
+            </button>
+          </form>
+
+          <p className="mt-4 text-center text-xs" style={{ color: 'var(--kd-muted)' }}>
+            <Link to="/" style={{ color: 'var(--kd-accent)' }}>
+              ← Voltar à página pública
+            </Link>
+          </p>
+        </main>
+      </div>
     </div>
   );
 }

@@ -1,25 +1,42 @@
 import { randomUUID } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 import fastifyCookie from '@fastify/cookie';
 import fastifyHelmet from '@fastify/helmet';
+import fastifyMultipart from '@fastify/multipart';
 import fastifyRateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import { ERROR_CODES, type HealthResponse, healthResponseSchema } from '@krndocs/shared';
 import Fastify, { type FastifyInstance, type FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
 import type { Env } from './config/env.js';
+import { serveStaticEnabled } from './config/env.js';
 import type { DataPaths } from './config/paths.js';
 import type { Db } from './db/database.js';
 import { countMigrations } from './db/migrate.js';
 import { AppError, fromZodError, safeEnvelope } from './lib/errors.js';
 import { parseOutput } from './lib/validate.js';
 import { attachSession, enforcePasswordFreshness } from './plugins/auth.js';
+import { registerAttachmentRoutes } from './routes/attachments.js';
 import { registerAuthRoutes } from './routes/auth.js';
+import { registerHistoryRoutes, registerTrashRoutes } from './routes/history.js';
 import { registerNodeRoutes } from './routes/nodes.js';
+import { registerPublicRoutes } from './routes/public.js';
+import { registerSearchRoutes } from './routes/search.js';
+import { registerTemplateRoutes } from './routes/templates.js';
+import { registerUserRoutes } from './routes/users.js';
+import { registerVisibilityRoutes } from './routes/visibility.js';
 
 export interface AppContext {
   env: Env;
   paths: DataPaths;
   db: Db;
   version: string;
+  /**
+   * Diretório do front pronto (`apps/web/dist`). Quando definido + estático
+   * ativo, a API serve o SPA na mesma origem (produção em loopback).
+   */
+  webDistDir?: string;
 }
 
 interface BuildOptions {
@@ -100,23 +117,55 @@ export async function buildApp(
 
   // Rate limit só onde declarado (global: false): reforço ao lockout persistente
   // do login, com o MESMO envelope de erro de toda a aplicação.
+  // ATENÇÃO: o plugin faz `throw` do retorno do builder — por isso devolvemos
+  // um AppError (com statusCode), e o setErrorHandler formata o envelope.
   await app.register(fastifyRateLimit, {
     global: false,
-    errorResponseBuilder: (request, context) =>
-      safeEnvelope(
-        new AppError(
-          429,
-          ERROR_CODES.RATE_LIMITED,
-          `Muitas requisições. Aguarde um momento e tente novamente. (${context.after})`,
-        ),
-        String(request.id),
+    errorResponseBuilder: (_request, context) =>
+      new AppError(
+        429,
+        ERROR_CODES.RATE_LIMITED,
+        `Muitas requisições. Aguarde um momento e tente novamente. (${context.after})`,
       ),
+  });
+
+  // Multipart só onde declarado (upload de anexos): 1 arquivo, 25 MiB.
+  // Acima do limite, o plugin responde 413 — mesmo envelope do resto.
+  await app.register(fastifyMultipart, {
+    limits: { files: 1, fileSize: 25 * 1024 * 1024 },
   });
 
   // Sessão por cookie em todo request (popula request.user).
   attachSession(app, ctx);
   // Senha provisória trava tudo fora de /api/auth/* (403 até a troca).
   enforcePasswordFreshness(app);
+
+  // Front pronto na mesma origem (produção em loopback): exige dist existente.
+  // Sem dist (dev/teste), o Vite atende o front e este bloco é inerte.
+  const staticRoot =
+    serveStaticEnabled(ctx.env) && ctx.webDistDir && fs.existsSync(ctx.webDistDir)
+      ? path.normalize(ctx.webDistDir)
+      : null;
+  if (staticRoot) {
+    await app.register(fastifyStatic, {
+      root: staticRoot,
+      prefix: '/',
+      wildcard: false,
+      index: 'index.html',
+      // Assets com hash podem cachear 1 ano; o index.html nunca cacheia
+      // (é ele que aponta para os assets novos a cada deploy).
+      maxAge: '1y',
+      immutable: true,
+      setHeaders: (reply, filePath) => {
+        if (filePath.endsWith('index.html')) reply.header('cache-control', 'no-store');
+      },
+    });
+  } else if (serveStaticEnabled(ctx.env)) {
+    app.log.warn(
+      { webDistDir: ctx.webDistDir ?? null },
+      'estático ativo mas dist ausente: rode npm run build',
+    );
+  }
 
   // ---- tratamento uniforme de erros ----
   app.setErrorHandler((error, request, reply) => {
@@ -169,6 +218,13 @@ export async function buildApp(
   });
 
   app.setNotFoundHandler((request, reply) => {
+    const url = request.url.split('?')[0] ?? '';
+    // SPA fallback: rotas do front voltam ao index.html (o roteador decide).
+    // Rotas de API inexistentes continuam em envelope JSON.
+    if (request.method === 'GET' && !url.startsWith('/api/') && staticRoot) {
+      reply.header('cache-control', 'no-store');
+      return reply.sendFile('index.html');
+    }
     return reply
       .status(404)
       .send(
@@ -179,7 +235,17 @@ export async function buildApp(
   // ---- rotas ----
   await registerHealthRoutes(app, ctx);
   await registerAuthRoutes(app, ctx);
+  // Rotas públicas ANTES das autenticadas: sem requireAuth por desenho
+  // (só leitura do que é public-chain; ver services/public.ts).
+  await registerPublicRoutes(app, ctx);
   await registerNodeRoutes(app, ctx);
+  await registerSearchRoutes(app, ctx);
+  await registerAttachmentRoutes(app, ctx);
+  await registerTemplateRoutes(app, ctx);
+  await registerHistoryRoutes(app, ctx);
+  await registerTrashRoutes(app, ctx);
+  await registerVisibilityRoutes(app, ctx);
+  await registerUserRoutes(app, ctx);
 
   return app;
 }

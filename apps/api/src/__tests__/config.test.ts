@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { loadEnv } from '../config/env.js';
+import { loadEnv, serveStaticEnabled } from '../config/env.js';
 import { buildDataPaths, resolveDataDir } from '../config/paths.js';
 
 describe('loadEnv', () => {
@@ -9,6 +9,7 @@ describe('loadEnv', () => {
     expect(env.PORT).toBe(3000);
     expect(env.NODE_ENV).toBe('development');
     expect(env.COOKIE_SECURE).toBe(false);
+    expect(env.SERVE_STATIC).toBe(false);
   });
 
   it('rejeita porta fora do intervalo', () => {
@@ -47,6 +48,20 @@ describe('loadEnv', () => {
     expect(loadEnv({ HOST: '127.0.0.1' } as NodeJS.ProcessEnv).HOST).toBe('127.0.0.1');
     expect(loadEnv({ HOST: 'localhost' } as NodeJS.ProcessEnv).HOST).toBe('localhost');
     expect(loadEnv({ HOST: '::1' } as NodeJS.ProcessEnv).HOST).toBe('::1');
+  });
+
+  it('estático: explícito ou implícito em produção', () => {
+    expect(serveStaticEnabled(loadEnv({} as NodeJS.ProcessEnv))).toBe(false);
+    expect(serveStaticEnabled(loadEnv({ SERVE_STATIC: 'true' } as NodeJS.ProcessEnv))).toBe(true);
+    expect(
+      serveStaticEnabled(
+        loadEnv({
+          NODE_ENV: 'production',
+          DATA_DIR: '/data',
+          SESSION_SECRET: 'x'.repeat(48),
+        } as NodeJS.ProcessEnv),
+      ),
+    ).toBe(true);
   });
 });
 

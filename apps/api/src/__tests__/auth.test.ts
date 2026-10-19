@@ -8,6 +8,7 @@ import { loadEnv } from '../config/env.js';
 import { buildDataPaths } from '../config/paths.js';
 import { closeDatabase, type Db, openDatabase } from '../db/database.js';
 import { runMigrations } from '../db/migrate.js';
+import { changePassword } from '../services/auth.js';
 import { ensureUser } from '../services/users.js';
 
 type InjectResponse = Awaited<ReturnType<FastifyInstance['inject']>>;
@@ -248,11 +249,16 @@ describe('ensureUser (provisionamento)', () => {
 describe('POST /api/auth/change-password', () => {
   const USER = { username: 'troca.user', displayName: 'Troca', role: 'member' as const };
   const CURRENT = 'senha-atual-12345';
-
   function cookiesOf(response: InjectResponse): Record<string, string> {
     const [name, value] = cookieOf(response).split('=');
     return { [name as string]: value as string };
   }
+
+  it('rejeita nova senha abaixo do mínimo antes de tocar no banco', async () => {
+    // Defesa em profundidade (a rota já barra via Zod): curto-circuito sem I/O.
+    const result = await changePassword(db, 'qualquer-id', 'x'.repeat(20), 'curta');
+    expect(result).toEqual({ ok: false, reason: 'too_short' });
+  });
 
   it('rejeita senha atual incorreta sem revelar nada além do 401', async () => {
     await ensureUser(db, USER, CURRENT);

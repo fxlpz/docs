@@ -21,10 +21,14 @@
     "lint:fix": "biome check --write .",
     "format": "biome format --write .",
     "migrate": "node scripts/run24.mjs 'npm run migrate --workspace @krndocs/api'",
-    "provision": "node scripts/run24.mjs 'npm run provision --workspace @krndocs/api'"
+    "provision": "node scripts/run24.mjs 'npm run provision --workspace @krndocs/api'",
+    "backup": "node scripts/run24.mjs 'npm run backup --workspace @krndocs/api'",
+    "restore": "node scripts/run24.mjs 'npm run restore --workspace @krndocs/api'",
+    "start": "node scripts/run24.mjs 'npm run start --workspace @krndocs/api'"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.15",
+    "@vitest/coverage-v8": "^5.0.3",
     "typescript": "^5.9.3"
   },
   "allowScripts": {

@@ -22,11 +22,13 @@ type AuthStatus = 'loading' | 'anon' | 'authed';
 
 interface AuthContextValue {
   status: AuthStatus;
+  userId: string | null;
   username: string | null;
   displayName: string | null;
   role: 'admin' | 'member' | null;
   /** true quando a senha é provisória (troca obrigatória pendente). */
   mustChangePassword: boolean;
+  hasAvatar: boolean;
   /** Lança `ApiError` com a mensagem do servidor em caso de falha. */
   login(username: string, password: string): Promise<void>;
   logout(): Promise<void>;
@@ -39,9 +41,11 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 export function AuthProvider({ children }: { children: ReactNode }): React.JSX.Element {
   const [status, setStatus] = useState<AuthStatus>('loading');
   const [user, setUser] = useState<{
+    id: string;
     username: string;
     displayName: string;
     role: 'admin' | 'member';
+    hasAvatar: boolean;
   } | null>(null);
   const [mustChangePassword, setMustChangePassword] = useState(false);
 
@@ -106,10 +110,12 @@ export function AuthProvider({ children }: { children: ReactNode }): React.JSX.E
   const value = useMemo<AuthContextValue>(
     () => ({
       status,
+      userId: user?.id ?? null,
       username: user?.username ?? null,
       displayName: user?.displayName ?? null,
       role: user?.role ?? null,
       mustChangePassword,
+      hasAvatar: user?.hasAvatar ?? false,
       login,
       logout,
       refresh: loadMe,

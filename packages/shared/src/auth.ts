@@ -18,6 +18,8 @@ export const sessionUserSchema = z.object({
   username: z.string().min(3).max(64),
   displayName: z.string().min(1).max(120),
   role: userRoleSchema,
+  /** true quando há foto de perfil (`GET /api/users/:id/avatar`). */
+  hasAvatar: z.boolean(),
 });
 export type SessionUser = z.infer<typeof sessionUserSchema>;
 

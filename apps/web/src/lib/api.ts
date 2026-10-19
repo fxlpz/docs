@@ -25,6 +25,7 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T = unknown>(path: string, options: RequestInit = {}): Promise<T> {
+  const isForm = typeof FormData !== 'undefined' && options.body instanceof FormData;
   let response: Response;
   try {
     response = await fetch(path, {
@@ -32,7 +33,8 @@ export async function apiFetch<T = unknown>(path: string, options: RequestInit =
       ...options,
       headers: {
         accept: 'application/json',
-        ...(options.body ? { 'content-type': 'application/json' } : {}),
+        // FormData define o próprio content-type (com boundary); nunca forçar JSON.
+        ...(options.body && !isForm ? { 'content-type': 'application/json' } : {}),
         ...options.headers,
       },
     });
@@ -65,4 +67,27 @@ export function parseWith<T>(schema: ZodType<T>, value: unknown): T {
     throw new ApiError(0, 'OUT_OF_CONTRACT', 'Resposta da API fora do contrato esperado.');
   }
   return parsed.data;
+}
+
+/**
+ * Download de anexo (binário): devolve o Blob ou lança `ApiError` com a
+ * mensagem do envelope. Não passa pelo `response.json()` do `apiFetch`.
+ */
+export async function apiFetchBlob(path: string): Promise<Blob> {
+  let response: Response;
+  try {
+    response = await fetch(path, { credentials: 'same-origin' });
+  } catch {
+    throw new ApiError(0, 'NETWORK_ERROR', 'Não foi possível conectar ao servidor.');
+  }
+  if (!response.ok) {
+    const json: unknown = await response.json().catch(() => null);
+    const envelope = (json as ApiErrorBody | null)?.error;
+    throw new ApiError(
+      response.status,
+      envelope?.code ?? 'UNKNOWN',
+      envelope?.message ?? `O servidor respondeu ${response.status}.`,
+    );
+  }
+  return response.blob();
 }

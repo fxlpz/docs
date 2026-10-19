@@ -1,25 +1,46 @@
 @import "tailwindcss";
 
 /*
+ * Identidade visual do KernelDocs.
  * Tema claro/escuro por classe em <html> ("dark").
- * Os tokens abaixo são a base da identidade visual própria do KernelDocs.
+ * Componentes usam as classes .kd-* abaixo (botões, cartões, campos),
+ * que reagem aos tokens — nada de cores fixas fora daqui e do editor.
  */
 :root {
-  --kd-bg: #f7f8fa;
+  --kd-bg: #f4f6f8;
   --kd-surface: #ffffff;
-  --kd-border: #e2e5ea;
-  --kd-text: #14181f;
-  --kd-muted: #5b6472;
-  --kd-accent: #0f6f4f;
+  --kd-surface-2: #eef1f4;
+  --kd-border: #e0e5ea;
+  --kd-border-strong: #c9d1d9;
+  --kd-text: #131922;
+  --kd-muted: #5d6875;
+  --kd-accent: #c2410c;
+  --kd-accent-strong: #9a3412;
+  --kd-accent-soft: rgba(194, 65, 12, 0.1);
+  --kd-danger: #b3261e;
+  --kd-danger-soft: rgba(179, 38, 30, 0.08);
+  --kd-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 4px 16px rgba(16, 24, 40, 0.06);
+  --kd-shadow-lg: 0 2px 6px rgba(16, 24, 40, 0.08), 0 12px 32px rgba(16, 24, 40, 0.12);
+  --kd-radius: 0.625rem;
+  --kd-ring: rgba(194, 65, 12, 0.35);
 }
 
 .dark {
-  --kd-bg: #0f1319;
-  --kd-surface: #161b23;
-  --kd-border: #262d38;
-  --kd-text: #e7eaef;
-  --kd-muted: #97a1b0;
-  --kd-accent: #38c08a;
+  --kd-bg: #0c1016;
+  --kd-surface: #141a23;
+  --kd-surface-2: #1a2230;
+  --kd-border: #232c3a;
+  --kd-border-strong: #33405250;
+  --kd-text: #e8ebf0;
+  --kd-muted: #9aa5b3;
+  --kd-accent: #fb923c;
+  --kd-accent-strong: #f97316;
+  --kd-accent-soft: rgba(251, 146, 60, 0.12);
+  --kd-danger: #e46962;
+  --kd-danger-soft: rgba(228, 105, 98, 0.1);
+  --kd-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.35);
+  --kd-shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.4), 0 16px 40px rgba(0, 0, 0, 0.45);
+  --kd-ring: rgba(251, 146, 60, 0.4);
 }
 
 html,
@@ -33,4 +54,293 @@ body {
   background: var(--kd-bg);
   color: var(--kd-text);
   font-family: "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: var(--kd-accent-soft);
+}
+
+/* Foco visível e consistente em interativos */
+:where(button, a, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--kd-ring);
+  outline-offset: 2px;
+}
+
+/* ---------- Botões ---------- */
+.kd-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.375rem;
+  border-radius: var(--kd-radius);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  line-height: 1.25rem;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    border-color 0.15s ease,
+    opacity 0.15s ease,
+    transform 0.05s ease;
+  white-space: nowrap;
+}
+.kd-btn:active {
+  transform: translateY(1px);
+}
+.kd-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.kd-btn-primary {
+  background: var(--kd-accent);
+  border-color: var(--kd-accent);
+  color: #fff;
+}
+.kd-btn-primary:hover:not(:disabled) {
+  background: var(--kd-accent-strong);
+  border-color: var(--kd-accent-strong);
+}
+
+.kd-btn-ghost {
+  background: transparent;
+  border-color: var(--kd-border);
+  color: var(--kd-text);
+}
+.kd-btn-ghost:hover:not(:disabled) {
+  border-color: var(--kd-border-strong);
+  background: var(--kd-surface-2);
+}
+
+.kd-btn-danger-ghost {
+  background: transparent;
+  border-color: var(--kd-danger);
+  color: var(--kd-danger);
+}
+.kd-btn-danger-ghost:hover:not(:disabled) {
+  background: var(--kd-danger-soft);
+}
+
+.kd-btn-block {
+  width: 100%;
+  padding-top: 0.625rem;
+  padding-bottom: 0.625rem;
+  font-size: 0.875rem;
+}
+
+/* ---------- Campos ---------- */
+.kd-input,
+.kd-select {
+  width: 100%;
+  border-radius: var(--kd-radius);
+  border: 1px solid var(--kd-border);
+  background: transparent;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: var(--kd-text);
+  transition:
+    border-color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+/** Campo com ícone à esquerda (ícone absoluto). */
+.kd-input-icon {
+  padding-left: 2.25rem;
+}
+.kd-input::placeholder {
+  color: var(--kd-muted);
+  opacity: 0.8;
+}
+.kd-input:focus,
+.kd-select:focus {
+  outline: none;
+  border-color: var(--kd-accent);
+  box-shadow: 0 0 0 3px var(--kd-ring);
+}
+.kd-select option {
+  background: var(--kd-surface);
+  color: var(--kd-text);
+}
+
+.kd-label {
+  display: block;
+  font-size: 0.8125rem;
+  margin-bottom: 0.25rem;
+  color: var(--kd-muted);
+}
+
+/* ---------- Cartões e seções ---------- */
+.kd-card {
+  border-radius: calc(var(--kd-radius) + 0.25rem);
+  border: 1px solid var(--kd-border);
+  background: var(--kd-surface);
+  box-shadow: var(--kd-shadow);
+}
+
+.kd-section-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.kd-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 9999px;
+  border: 1px solid var(--kd-border);
+  padding: 0.0625rem 0.5rem;
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--kd-muted);
+  white-space: nowrap;
+}
+.kd-badge-accent {
+  border-color: transparent;
+  background: var(--kd-accent-soft);
+  color: var(--kd-accent);
+}
+.kd-badge-danger {
+  border-color: transparent;
+  background: var(--kd-danger-soft);
+  color: var(--kd-danger);
+}
+
+.kd-alert-error {
+  border-radius: var(--kd-radius);
+  border: 1px solid var(--kd-danger);
+  background: var(--kd-danger-soft);
+  color: var(--kd-danger);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.8125rem;
+}
+
+.kd-muted {
+  color: var(--kd-muted);
+}
+
+/* Brilho discreto do cartão de boas-vindas da página inicial */
+.kd-home-glow {
+  position: absolute;
+  top: -7rem;
+  right: -4rem;
+  width: 22rem;
+  height: 22rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle, var(--kd-accent-soft), transparent 70%);
+  pointer-events: none;
+}
+
+/* ---------- Landing pública (/) ---------- */
+/* Fundo decorativo: brilhos do acento atrás do conteúdo */
+.kd-landing-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(55% 40% at 50% -8%, var(--kd-accent-soft), transparent 70%),
+    radial-gradient(40% 30% at 100% 8%, var(--kd-accent-soft), transparent 65%),
+    radial-gradient(35% 28% at 0% 60%, var(--kd-accent-soft), transparent 70%);
+}
+
+/* Cabeçalho translúcido com desfoque, colado no topo */
+.kd-landing-header {
+  background: color-mix(in srgb, var(--kd-surface) 85%, transparent);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* Emblema do hero: marca sobre o fundo com brilho suave */
+.kd-landing-emblem {
+  background: var(--kd-surface);
+  border: 1px solid var(--kd-border);
+  box-shadow: var(--kd-shadow-lg);
+}
+
+/* Ícone no ladrilho do acento: cartões de documento e cabeçalhos de página */
+.kd-icon-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 0.625rem;
+  background: var(--kd-accent-soft);
+  color: var(--kd-accent);
+}
+
+/* Cartão de lista com elevação sutil ao passar o mouse */
+.kd-card-interactive {
+  transition:
+    transform 0.15s ease,
+    box-shadow 0.15s ease;
+}
+.kd-card-interactive:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--kd-shadow-lg);
+}
+
+/* Título do hero com gradiente da identidade */
+.kd-gradient-text {
+  background: linear-gradient(
+    115deg,
+    var(--kd-text) 0%,
+    var(--kd-accent) 60%,
+    var(--kd-accent-strong) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Barra de rolagem discreta */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--kd-border);
+  border-radius: 8px;
+  border: 2px solid var(--kd-bg);
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ---------- Árvore lateral ---------- */
+.kd-tree-row {
+  transition: background-color 0.12s ease;
+}
+.kd-tree-row:hover {
+  background: var(--kd-surface-2);
+}
+.kd-tree-row-active,
+.kd-tree-row-active:hover {
+  background: var(--kd-accent-soft);
+  box-shadow: inset 2px 0 0 var(--kd-accent);
+}
+
+/* ---------- Bloco de código (BlockNote) ---------- */
+.bn-block-content[data-content-type="codeBlock"] > pre > code {
+  font-family: ui-monospace, "Cascadia Code", "JetBrains Mono", Menlo, Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.6;
+}
+.bn-block-content[data-content-type="codeBlock"] select {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  font-size: 0.75rem;
+  padding: 0.125rem 0.375rem;
+  cursor: pointer;
+}
+.bn-block-content[data-content-type="codeBlock"] select option {
+  color: #111;
 }

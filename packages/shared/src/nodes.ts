@@ -26,6 +26,11 @@ export const nodeSummarySchema = z.object({
   icon: nodeIconSchema.nullable(),
   position: z.number().int().nonnegative(),
   updatedAt: z.string().datetime(),
+  /**
+   * Visibilidade (landing pública). Default para compatibilidade com
+   * respostas antigas em cache: ausente = privado.
+   */
+  visibility: z.enum(['private', 'public']).default('private'),
 });
 export type NodeSummary = z.infer<typeof nodeSummarySchema>;
 
@@ -87,6 +92,17 @@ export const saveContentRequestSchema = z.object({
   source: z.enum(['autosave', 'manual']).default('manual'),
 });
 export type SaveContentRequest = z.infer<typeof saveContentRequestSchema>;
+
+/**
+ * POST /api/nodes/:id/move - mover para outra pasta e/ou posição.
+ * `beforeId` = inserir antes deste irmão (null = no fim). Posições dos
+ * irmãos são renumeradas de forma densa no servidor (sem furos/duplicatas).
+ */
+export const moveNodeRequestSchema = z.object({
+  parentId: z.string().min(1).nullish(),
+  beforeId: z.string().min(1).nullish(),
+});
+export type MoveNodeRequest = z.infer<typeof moveNodeRequestSchema>;
 
 /** Resposta do salvamento. */
 export const saveContentResponseSchema = z.object({

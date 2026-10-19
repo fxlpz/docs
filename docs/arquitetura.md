@@ -79,6 +79,21 @@ Monorepo com **npm workspaces** e três unidades de entrega:
   a troca, toda rota fora de `/api/auth/*` responde 403
   `PASSWORD_CHANGE_REQUIRED` — trava aplicada no servidor, nunca só na tela.
   A troca revoga todas as sessões e emite uma nova.
+- Sessões com validade fixa de 7 dias (sem renovação por atividade; `last_seen_at`
+  é só auditoria). Cookies `httpOnly`, assinados quando há `SESSION_SECRET`.
+- Anexos: allowlist de tipos com detecção por magic bytes (imagens, vídeo,
+  áudio, PDF, Office via ZIP+extensão, ZIP, texto; executáveis e SVG/HTML
+  barrados; declarado ≠ detectado => rejeitado), 25 MiB por arquivo,
+  armazenamento como UUID sem extensão em `DATA_DIR/attachments` (0700/0600).
+  Download sempre como `attachment`, exceto `?inline=1` para imagem/vídeo/áudio
+  (com `nosniff`) — o que permite embutir mídia no editor via upload direto
+  (aba Upload do `/`, sem só-link) e soltar arquivos na página.
+- Árvore com arrastar-soltar: `POST /api/nodes/:id/move` (pasta de destino +
+  posição antes-do-irmão, renumeração densa em transação, anti-ciclo).
+- Visualização embutida de anexos: imagem/vídeo/áudio/PDF nativos, texto com
+  escape, DOCX/XLSX convertidos localmente em iframe isolado e PPTX com leitura
+  simplificada local (texto + imagens por slide, sem layout); ZIP e afins só por
+  download (fidelidade total exigiria OnlyOffice/Collabora).
 - `login_attempts` e `activity` já existem no schema para auditoria desde o início.
 
 ## Fluxo de desenvolvimento

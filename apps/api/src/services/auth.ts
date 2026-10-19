@@ -55,6 +55,7 @@ interface UserRow {
   role: 'admin' | 'member';
   password_hash: string | null;
   must_change_password: number;
+  avatar_storage_key: string | null;
   is_active: number;
   failed_attempts: number;
   locked_until: string | null;
@@ -81,7 +82,7 @@ export async function authenticate(
 
   const row = db
     .prepare<[string], UserRow>(
-      `SELECT id, username, display_name, role, password_hash, must_change_password, is_active, failed_attempts, locked_until
+      `SELECT id, username, display_name, role, password_hash, must_change_password, avatar_storage_key, is_active, failed_attempts, locked_until
          FROM users
         WHERE username = ? AND deleted_at IS NULL`,
     )
@@ -140,6 +141,7 @@ export async function authenticate(
       username: row.username,
       displayName: row.display_name,
       role: row.role,
+      hasAvatar: row.avatar_storage_key !== null,
     },
     mustChangePassword: row.must_change_password === 1,
   };
@@ -196,17 +198,19 @@ export function resolveSession(db: Db, token: string): ResolvedSession | null {
         display_name: string;
         role: 'admin' | 'member';
         must_change_password: number;
+        avatar_storage_key: string | null;
         is_active: number;
         session_id: string;
         expires_at: string;
         revoked_at: string | null;
       }
     >(
-      `SELECT u.id, u.username, u.display_name, u.role, u.must_change_password, u.is_active,
+      `SELECT u.id, u.username, u.display_name, u.role, u.must_change_password,
+              u.avatar_storage_key, u.is_active,
               s.id AS session_id, s.expires_at, s.revoked_at
          FROM sessions s
          JOIN users u ON u.id = s.user_id
-        WHERE s.token_hash = ?`,
+        WHERE s.token_hash = ? AND u.deleted_at IS NULL`,
     )
     .get(sha256(token));
 
@@ -225,6 +229,7 @@ export function resolveSession(db: Db, token: string): ResolvedSession | null {
       username: row.username,
       displayName: row.display_name,
       role: row.role,
+      hasAvatar: row.avatar_storage_key !== null,
     },
     mustChangePassword: row.must_change_password === 1,
   };
@@ -245,7 +250,7 @@ export function purgeExpiredSessions(db: Db): void {
 
 export type ChangePasswordResult =
   | { ok: true }
-  | { ok: false; reason: 'invalid_current' | 'same_as_current' | 'too_short' };
+  | { ok: false; reason: 'invalid_current' | 'same_as_current' | 'too_short' | 'race' };
 
 /**
  * Troca a senha do usuário autenticado.
@@ -254,7 +259,9 @@ export type ChangePasswordResult =
  * - A nova senha precisa diferir da atual e respeitar o mínimo do contrato.
  * - Em sucesso: zera lockout, baixa a flag `must_change_password` e REVOGA
  *   TODAS as sessões do usuário (a rota emite uma sessão nova em seguida).
- * Tudo em transação: ou a troca é completa, ou nada muda.
+ * - Compare-and-swap no hash antigo: se outra troca passou na frente entre a
+ *   verificação e a gravação, esta perde com `race` (409) em vez de revogar
+ *   a sessão que a outra acabou de emitir.
  */
 export async function changePassword(
   db: Db,
@@ -270,10 +277,11 @@ export async function changePassword(
     )
     .get(userId);
   if (!row?.password_hash) return { ok: false, reason: 'invalid_current' };
+  const oldHash = row.password_hash;
 
   let currentValid = false;
   try {
-    currentValid = await argon2.verify(row.password_hash, currentPassword);
+    currentValid = await argon2.verify(oldHash, currentPassword);
   } catch {
     currentValid = false;
   }
@@ -281,7 +289,7 @@ export async function changePassword(
 
   let same = false;
   try {
-    same = await argon2.verify(row.password_hash, newPassword);
+    same = await argon2.verify(oldHash, newPassword);
   } catch {
     same = false;
   }
@@ -291,18 +299,23 @@ export async function changePassword(
   const now = new Date().toISOString();
 
   const apply = db.transaction(() => {
-    db.prepare(
-      `UPDATE users
+    // CAS: só grava se o hash ainda for o verificado acima.
+    const updated = db
+      .prepare(
+        `UPDATE users
           SET password_hash = ?, must_change_password = 0,
               failed_attempts = 0, locked_until = NULL, updated_at = ?
-        WHERE id = ?`,
-    ).run(newHash, now, userId);
+        WHERE id = ? AND password_hash = ?`,
+      )
+      .run(newHash, now, userId, oldHash);
+    if (updated.changes === 0) return false;
     db.prepare(`UPDATE sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL`).run(
       now,
       userId,
     );
+    return true;
   });
-  apply();
+  if (!apply()) return { ok: false, reason: 'race' };
 
   return { ok: true };
 }

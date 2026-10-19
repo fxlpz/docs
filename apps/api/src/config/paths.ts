@@ -21,6 +21,8 @@ export interface DataPaths {
   databaseFile: string;
   /** Raiz de armazenamento de anexos */
   attachmentsDir: string;
+  /** Raiz de fotos de perfil */
+  avatarsDir: string;
 }
 
 export function buildDataPaths(dataDir: string): DataPaths {
@@ -29,5 +31,6 @@ export function buildDataPaths(dataDir: string): DataPaths {
     root,
     databaseFile: path.join(root, 'app.db'),
     attachmentsDir: path.join(root, 'attachments'),
+    avatarsDir: path.join(root, 'avatars'),
   };
 }

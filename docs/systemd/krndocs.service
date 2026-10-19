@@ -1,0 +1,26 @@
+# Exemplo de user unit do systemd — KernelDocs (não instalado por padrão).
+# Instalar/ativar altera o servidor: só com aprovação (ver docs/implantacao.md).
+#
+#   mkdir -p ~/.config/systemd/user
+#   cp docs/systemd/krndocs.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now krndocs.service
+#   loginctl enable-linger kernel-adm
+[Unit]
+Description=KernelDocs (documentação interna, loopback)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/kernel-adm/Porject
+Environment=NODE_ENV=production
+Environment=PATH=/home/kernel-adm/.local/bin:/usr/bin:/bin
+ExecStart=/home/kernel-adm/.local/bin/npm run start
+Restart=on-failure
+RestartSec=5
+# Endurece o serviço sem afetar outros serviços do servidor
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=default.target

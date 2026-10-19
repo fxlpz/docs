@@ -12,7 +12,13 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response;
 }
 
-const user = { id: 'u1', username: 'felipe.rosa', displayName: 'Felipe Rosa', role: 'admin' };
+const user = {
+  id: 'u1',
+  username: 'felipe.rosa',
+  displayName: 'Felipe Rosa',
+  role: 'admin',
+  hasAvatar: false,
+};
 
 afterEach(() => {
   cleanup();
@@ -25,7 +31,7 @@ function renderLogin(): void {
       <AuthProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<div>workspace</div>} />
+          <Route path="/app" element={<div>workspace</div>} />
         </Routes>
       </AuthProvider>
     </MemoryRouter>,
@@ -48,7 +54,8 @@ describe('LoginPage', () => {
       ),
     );
     renderLogin();
-    expect(await screen.findByRole('heading', { name: 'KernelDocs' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeTruthy();
+    expect(screen.getByText(/conta provisionada/i)).toBeTruthy();
     expect(screen.getByLabelText('Usuário')).toBeTruthy();
     expect(screen.getByLabelText('Senha')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Entrar' })).toBeTruthy();
@@ -116,7 +123,7 @@ describe('LoginPage', () => {
           <Routes>
             <Route path="/login" element={<LoginPage />} />
             <Route path="/trocar-senha" element={<div>tela-trocar-senha</div>} />
-            <Route path="/" element={<div>workspace</div>} />
+            <Route path="/app" element={<div>workspace</div>} />
           </Routes>
         </AuthProvider>
       </MemoryRouter>,

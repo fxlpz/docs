@@ -6,6 +6,7 @@ import { buildDataPaths, resolveDataDir } from './config/paths.js';
 import { findWorkspaceRoot } from './config/workspace.js';
 import { closeDatabase, openDatabase } from './db/database.js';
 import { runMigrations } from './db/migrate.js';
+import { seedDefaultTemplates } from './services/defaultTemplates.js';
 
 function readVersion(root: string): string {
   try {
@@ -32,11 +33,22 @@ async function main(): Promise<void> {
     }
   }
 
+  // Modelos padrão: criados UMA única vez (marcado em `settings`); apagá-los
+  // depois não faz eles voltarem. Falha aqui nunca derruba a inicialização.
+  try {
+    const seeded = seedDefaultTemplates(db);
+    if (seeded > 0) console.log(`[templates] ${seeded} modelos padrão criados/atualizados`);
+  } catch (error) {
+    console.error('[templates] falha ao criar modelos padrão:', error);
+  }
+
   const ctx: AppContext = {
     env,
     paths,
     db,
     version: readVersion(root),
+    // Front pronto para produção (SERVE_STATIC/produção); inexistente em dev puro.
+    webDistDir: path.join(root, 'apps', 'web', 'dist'),
   };
 
   const app = await buildApp(ctx);

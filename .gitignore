@@ -26,3 +26,9 @@ npm-debug.log*
 # Testes E2E (futuro)
 playwright-report/
 test-results/
+node_modules/
+.env
+.env.*
+*.log
+dist/
+var/

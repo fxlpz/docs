@@ -121,6 +121,30 @@ describe('tratamento de erros', () => {
     expect(envelope.error.message.length).toBeLessThanOrEqual(500);
     expect(envelope.error.fields?.campo.length).toBeLessThanOrEqual(300);
   });
+
+  it('corpo JSON malformado vira 400 com envelope (não vaza detalhe)', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: '{"username": "quebrado", ',
+    });
+    expect(response.statusCode).toBe(400);
+    const body = response.json() as { error: { code: string; message: string } };
+    expect(body.error.code).toBe('VALIDATION_ERROR');
+    expect(body.error.message).toBe('Requisição inválida.');
+  });
+
+  it('corpo acima de 2 MiB vira 413 com envelope', async () => {
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/auth/login',
+      headers: { 'content-type': 'application/json' },
+      payload: `{"username": "alguem.valido", "password": "${'x'.repeat(2 * 1024 * 1024 + 100)}"}`,
+    });
+    expect(response.statusCode).toBe(413);
+    expect((response.json() as { error: { code: string } }).error.code).toBe('PAYLOAD_TOO_LARGE');
+  }, 30000);
 });
 
 describe('migrações', () => {

@@ -31,10 +31,14 @@ interface NodeRow {
   icon: string | null;
   position: number;
   current_version: number;
+  visibility: 'private' | 'public';
   updated_at: string;
 }
 
-const NODE_COLUMNS = `id, type, parent_id, title, icon, position, current_version, updated_at`;
+const NODE_COLUMNS = `id, type, parent_id, title, icon, position, current_version, visibility, updated_at`;
+
+/** Teto de uma versão de conteúdo (abaixo do bodyLimit de 2 MiB). */
+export const PAGE_CONTENT_MAX_BYTES = 1500 * 1024;
 
 function nowIso(): string {
   return new Date().toISOString();
@@ -57,6 +61,7 @@ function toSummary(row: NodeRow): NodeSummary {
     icon: row.icon,
     position: row.position,
     updatedAt: row.updated_at,
+    visibility: row.visibility,
   };
 }
 
@@ -160,58 +165,56 @@ export function updateNode(
 ): NodeSummary {
   const node = getActiveNode(db, id);
 
-  let parentSet = false;
-  let position: number = node.position;
-
-  if (input.parentId !== undefined) {
+  // Validações de movimento ANTES de qualquer escrita (leituras puras).
+  if (input.parentId !== undefined && input.parentId) {
     const parentId = input.parentId;
     if (parentId === id) throw invalid('Um item não pode ser pai de si mesmo.');
-    if (parentId) {
-      assertValidParent(db, parentId);
-      // Ciclo: o novo pai não pode ser o próprio nó nem um descendente dele.
-      if (isSelfOrAncestor(db, parentId, id)) {
-        throw new AppError(
-          409,
-          ERROR_CODES.CONFLICT,
-          'Movimento inválido: não é possível mover uma pasta para dentro de si mesma ou de um descendente.',
-        );
-      }
+    assertValidParent(db, parentId);
+    // Ciclo: o novo pai não pode ser o próprio nó nem um descendente dele.
+    if (isSelfOrAncestor(db, parentId, id)) {
+      throw new AppError(
+        409,
+        ERROR_CODES.CONFLICT,
+        'Movimento inválido: não é possível mover uma pasta para dentro de si mesma ou de um descendente.',
+      );
     }
-    db.prepare(`UPDATE nodes SET parent_id = ? WHERE id = ?`).run(parentId, id);
-    parentSet = true;
-    // Mover para outra pasta: entra no fim do destino, salvo posição explícita.
-    if (input.position === undefined) position = nextPosition(db, parentId);
   }
 
-  if (input.position !== undefined) {
-    position = input.position;
-    if (!parentSet) {
+  // Todas as escritas em UMA transação: falha no meio não deixa o nó com
+  // pai novo e posição antiga (ou vice-versa).
+  const apply = db.transaction(() => {
+    if (input.parentId !== undefined) {
+      const parentId = input.parentId;
+      db.prepare(`UPDATE nodes SET parent_id = ? WHERE id = ?`).run(parentId, id);
+      // Posição explícita vence; sem ela, entra no fim do destino.
+      const position = input.position ?? nextPosition(db, parentId);
       db.prepare(`UPDATE nodes SET position = ? WHERE id = ?`).run(position, id);
+    } else if (input.position !== undefined) {
+      db.prepare(`UPDATE nodes SET position = ? WHERE id = ?`).run(input.position, id);
     }
-  }
 
-  if (input.title !== undefined) {
-    db.prepare(`UPDATE nodes SET title = ? WHERE id = ?`).run(input.title, id);
-  }
-  if (input.icon !== undefined) {
-    db.prepare(`UPDATE nodes SET icon = ? WHERE id = ?`).run(input.icon, id);
-  }
+    if (input.title !== undefined) {
+      db.prepare(`UPDATE nodes SET title = ? WHERE id = ?`).run(input.title, id);
+    }
+    if (input.icon !== undefined) {
+      db.prepare(`UPDATE nodes SET icon = ? WHERE id = ?`).run(input.icon, id);
+    }
 
-  if (parentSet && input.position === undefined) {
-    db.prepare(`UPDATE nodes SET position = ? WHERE id = ?`).run(position, id);
-  }
+    db.prepare(`UPDATE nodes SET updated_at = ?, updated_by = ? WHERE id = ?`).run(
+      nowIso(),
+      actorId,
+      id,
+    );
+  });
+  apply();
 
-  db.prepare(`UPDATE nodes SET updated_at = ?, updated_by = ? WHERE id = ?`).run(
-    nowIso(),
-    actorId,
-    id,
-  );
-
-  const action =
-    input.parentId !== undefined
-      ? node.type === 'folder'
-        ? 'folder.move'
-        : 'page.move'
+  const moved = input.parentId !== undefined;
+  const action = moved
+    ? node.type === 'folder'
+      ? 'folder.move'
+      : 'page.move'
+    : node.type === 'folder'
+      ? 'folder.rename'
       : 'page.rename';
   logActivity(db, {
     actorId,
@@ -219,6 +222,100 @@ export function updateNode(
     entityType: 'node',
     entityId: id,
     summary: input.title ?? node.title,
+  });
+
+  return toSummary(getActiveNode(db, id));
+}
+
+export interface MoveNodeInput {
+  parentId: string | null;
+  /** Inserir imediatamente antes deste irmão (null = no fim). */
+  beforeId: string | null;
+}
+
+/**
+ * Move com renumeração densa dos irmãos (origem e destino), em transação.
+ * Base do arrastar-soltar na árvore: sem furos nem duplicatas de posição.
+ */
+export function moveNode(db: Db, actorId: string, id: string, input: MoveNodeInput): NodeSummary {
+  const node = getActiveNode(db, id);
+  const parentId = input.parentId;
+
+  if (parentId === id) throw invalid('Um item não pode ser pai de si mesmo.');
+  if (parentId) {
+    assertValidParent(db, parentId);
+    if (isSelfOrAncestor(db, parentId, id)) {
+      throw new AppError(
+        409,
+        ERROR_CODES.CONFLICT,
+        'Movimento inválido: não é possível mover uma pasta para dentro de si mesma ou de um descendente.',
+      );
+    }
+  }
+
+  let beforeId: string | null = null;
+  if (input.beforeId) {
+    const before = db
+      .prepare<[string], { id: string; parent_id: string | null }>(
+        `SELECT id, parent_id FROM nodes WHERE id = ? AND deleted_at IS NULL`,
+      )
+      .get(input.beforeId);
+    if (!before) throw invalid('O item de referência não existe.');
+    if ((before.parent_id ?? null) !== parentId || before.id === id) {
+      throw invalid('O item de referência precisa ser irmão do destino.');
+    }
+    beforeId = before.id;
+  }
+
+  const now = nowIso();
+  const apply = db.transaction(() => {
+    db.prepare(`UPDATE nodes SET parent_id = ? WHERE id = ?`).run(parentId, id);
+
+    // Renumera os irmãos do destino de forma densa, com o movido na posição
+    // do `beforeId` (ou no fim).
+    const siblings = db
+      .prepare<(string | null)[], { id: string }>(
+        `SELECT id FROM nodes
+          WHERE parent_id IS ? AND id <> ? AND deleted_at IS NULL
+          ORDER BY position, title`,
+      )
+      .all(parentId, id);
+    const ordered = siblings.map((sibling) => sibling.id);
+    const at = beforeId ? ordered.indexOf(beforeId) : -1;
+    if (at >= 0) ordered.splice(at, 0, id);
+    else ordered.push(id);
+    ordered.forEach((siblingId, position) => {
+      db.prepare(`UPDATE nodes SET position = ? WHERE id = ?`).run(position, siblingId);
+    });
+
+    // Renumera os irmãos antigos (de onde o nó saiu), se mudou de pai.
+    if ((node.parent_id ?? null) !== parentId) {
+      const oldSiblings = db
+        .prepare<(string | null)[], { id: string }>(
+          `SELECT id FROM nodes
+            WHERE parent_id IS ? AND id <> ? AND deleted_at IS NULL
+            ORDER BY position, title`,
+        )
+        .all(node.parent_id, id);
+      oldSiblings.forEach((sibling, position) => {
+        db.prepare(`UPDATE nodes SET position = ? WHERE id = ?`).run(position, sibling.id);
+      });
+    }
+
+    db.prepare(`UPDATE nodes SET updated_at = ?, updated_by = ? WHERE id = ?`).run(
+      now,
+      actorId,
+      id,
+    );
+  });
+  apply();
+
+  logActivity(db, {
+    actorId,
+    action: node.type === 'folder' ? 'folder.move' : 'page.move',
+    entityType: 'node',
+    entityId: id,
+    summary: node.title,
   });
 
   return toSummary(getActiveNode(db, id));
@@ -298,7 +395,11 @@ export function blocksToPlainText(blocks: PageContent): string {
     if (value && typeof value === 'object') {
       for (const [key, item] of Object.entries(value)) {
         // Só campos textuais do BlockNote; ignora type, props, ids etc.
-        if (key === 'text' || key === 'content') collect(item);
+        // `children` (toggles/listas aninhadas) e `rows` (tabelas) também
+        // carregam conteúdo que precisa ser encontrável na busca.
+        if (key === 'text' || key === 'content' || key === 'children' || key === 'rows') {
+          collect(item);
+        }
       }
     }
   };
@@ -329,6 +430,15 @@ export function saveContent(
   const nextVersion = node.current_version + 1;
   const json = JSON.stringify(input.content);
   const byteSize = Buffer.byteLength(json, 'utf8');
+  // Teto por versão: abaixo do bodyLimit (2 MiB) com folga para o envelope.
+  // Páginas maiores que isso indicam anexo disfarçado de conteúdo.
+  if (byteSize > PAGE_CONTENT_MAX_BYTES) {
+    throw new AppError(
+      413,
+      ERROR_CODES.PAYLOAD_TOO_LARGE,
+      'Conteúdo acima do tamanho permitido para uma versão. Use anexos para arquivos grandes.',
+    );
+  }
   const now = nowIso();
   const searchText = blocksToPlainText(input.content);
 

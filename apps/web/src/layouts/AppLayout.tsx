@@ -1,21 +1,30 @@
-import { Outlet, useNavigate } from 'react-router-dom';
+import { LogOut, Search } from 'lucide-react';
+import { type FormEvent, useState } from 'react';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.js';
+import { BrandMark } from '../components/Brand.js';
+import { ThemeToggle } from '../components/ThemeToggle.js';
 import { TreePanel, TreeRefreshProvider } from '../components/TreePanel.js';
+import { UserAvatar } from '../components/UserAvatar.js';
 import { RequireAuth } from '../pages/LoginPage.js';
-import { useTheme } from '../theme.js';
 
 /**
  * Casca da aplicação (Etapa 2): guarda de sessão + cabeçalho + árvore.
  * O conteúdo da rota entra por <Outlet />.
  */
 export function AppLayout(): React.JSX.Element {
-  const { displayName, username, role, logout } = useAuth();
-  const { theme, toggle } = useTheme();
+  const { userId, displayName, username, role, hasAvatar, logout } = useAuth();
   const navigate = useNavigate();
+  const [search, setSearch] = useState('');
 
   async function handleLogout(): Promise<void> {
     await logout();
     navigate('/login', { replace: true });
+  }
+
+  function handleSearch(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    if (search.trim()) navigate(`/app/buscar?q=${encodeURIComponent(search.trim())}`);
   }
 
   return (
@@ -23,43 +32,100 @@ export function AppLayout(): React.JSX.Element {
       <TreeRefreshProvider>
         <div className="flex h-full flex-col">
           <header
-            className="flex items-center justify-between border-b px-4 py-2"
-            style={{ borderColor: 'var(--kd-border)', background: 'var(--kd-surface)' }}
+            className="z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-5"
+            style={{
+              borderColor: 'var(--kd-border)',
+              background: 'var(--kd-surface)',
+              boxShadow: 'var(--kd-shadow)',
+            }}
           >
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-semibold">KernelDocs</span>
-              <span className="text-xs" style={{ color: 'var(--kd-muted)' }}>
+            <div className="flex min-w-0 items-center gap-2">
+              <Link
+                to="/app"
+                className="flex shrink-0 items-center gap-2 rounded-md px-1 py-0.5 text-sm font-semibold tracking-tight"
+              >
+                <BrandMark />
+                KernelDocs
+              </Link>
+              <span
+                className="hidden truncate text-xs lg:inline"
+                style={{ color: 'var(--kd-muted)' }}
+              >
                 Cybersegurança
               </span>
             </div>
 
-            <div className="flex items-center gap-3 text-sm">
-              <span style={{ color: 'var(--kd-text)' }} title={username ?? undefined}>
-                {displayName ?? username}
-              </span>
-              {role === 'admin' && (
+            <search className="hidden min-w-0 flex-1 justify-center sm:flex">
+              <form onSubmit={handleSearch} className="w-full max-w-sm">
                 <span
-                  className="rounded border px-1 py-0.5 text-xs"
-                  style={{ borderColor: 'var(--kd-border)', color: 'var(--kd-muted)' }}
+                  className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5"
+                  style={{ borderColor: 'var(--kd-border)', background: 'var(--kd-bg)' }}
                 >
-                  admin
+                  <Search size={14} aria-hidden="true" style={{ color: 'var(--kd-muted)' }} />
+                  <input
+                    type="search"
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Buscar na documentação…"
+                    aria-label="Buscar na documentação"
+                    className="w-full bg-transparent text-xs outline-none"
+                    style={{ color: 'var(--kd-text)' }}
+                  />
                 </span>
+              </form>
+            </search>
+
+            <nav className="hidden shrink-0 items-center gap-1 text-xs md:flex" aria-label="Seções">
+              <Link
+                to="/app/modelos"
+                className="rounded-md px-2 py-1.5 transition-colors hover:opacity-80"
+                style={{ color: 'var(--kd-muted)' }}
+              >
+                Modelos
+              </Link>
+              <Link
+                to="/app/lixeira"
+                className="rounded-md px-2 py-1.5 transition-colors hover:opacity-80"
+                style={{ color: 'var(--kd-muted)' }}
+              >
+                Lixeira
+              </Link>
+              {role === 'admin' && (
+                <Link
+                  to="/app/usuarios"
+                  className="rounded-md px-2 py-1.5 transition-colors hover:opacity-80"
+                  style={{ color: 'var(--kd-muted)' }}
+                >
+                  Usuários
+                </Link>
               )}
+            </nav>
+
+            <div className="flex shrink-0 items-center gap-2 text-sm">
               <button
                 type="button"
-                onClick={toggle}
-                aria-pressed={theme === 'dark'}
-                className="rounded-md border px-2 py-1 text-xs"
-                style={{ borderColor: 'var(--kd-border)', color: 'var(--kd-text)' }}
+                onClick={() => navigate('/app/perfil')}
+                title="Abrir meu perfil"
+                className="kd-btn kd-btn-ghost"
               >
-                {theme === 'dark' ? 'Tema claro' : 'Tema escuro'}
+                <UserAvatar
+                  userId={userId ?? ''}
+                  hasAvatar={hasAvatar}
+                  name={displayName ?? username ?? '?'}
+                  size={18}
+                />
+                <span title={username ?? undefined} className="max-w-28 truncate">
+                  {displayName ?? username}
+                </span>
+                {role === 'admin' && <span className="kd-badge">admin</span>}
               </button>
+              <ThemeToggle />
               <button
                 type="button"
                 onClick={() => void handleLogout()}
-                className="rounded-md border px-2 py-1 text-xs"
-                style={{ borderColor: 'var(--kd-border)', color: 'var(--kd-text)' }}
+                className="kd-btn kd-btn-ghost"
               >
+                <LogOut size={14} aria-hidden="true" />
                 Sair
               </button>
             </div>

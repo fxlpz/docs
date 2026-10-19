@@ -158,6 +158,13 @@ export async function registerAuthRoutes(app: FastifyInstance, ctx: AppContext):
             'A nova senha precisa ser diferente da atual.',
           );
         }
+        if (result.reason === 'race') {
+          throw new AppError(
+            409,
+            ERROR_CODES.CONFLICT,
+            'A senha foi alterada em outra sessão. Entre novamente e tente outra vez.',
+          );
+        }
         throw new AppError(
           400,
           ERROR_CODES.VALIDATION_ERROR,

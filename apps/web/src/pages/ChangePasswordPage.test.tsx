@@ -12,7 +12,13 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as Response;
 }
 
-const user = { id: 'u1', username: 'felipe.rosa', displayName: 'Felipe Rosa', role: 'admin' };
+const user = {
+  id: 'u1',
+  username: 'felipe.rosa',
+  displayName: 'Felipe Rosa',
+  role: 'admin',
+  hasAvatar: false,
+};
 
 afterEach(() => {
   cleanup();
@@ -30,7 +36,7 @@ function renderChange(fetchImpl: (input: RequestInfo | URL) => Promise<Response>
         <Routes>
           <Route path="/trocar-senha" element={<ChangePasswordPage />} />
           <Route path="/login" element={<div>tela-de-login</div>} />
-          <Route path="/" element={<div>workspace</div>} />
+          <Route path="/app" element={<div>workspace</div>} />
         </Routes>
       </AuthProvider>
     </MemoryRouter>,
@@ -110,5 +116,31 @@ describe('ChangePasswordPage', () => {
     await fillAndSubmit('senha-provisoria', 'senha-definitiva-1', 'senha-definitiva-1');
     // Após a troca, refresh() recarrega /me sem flag e navega ao workspace
     expect(await screen.findByText('workspace')).toBeTruthy();
+  });
+
+  test('senha curta é barrada localmente (sem chamar a API)', async () => {
+    const calls: string[] = [];
+    renderChange(async (input) => {
+      calls.push(String(input));
+      if (String(input).includes('/api/auth/change-password')) {
+        return jsonResponse({ ok: true });
+      }
+      return jsonResponse({ user, mustChangePassword: true });
+    });
+    await fillAndSubmit('provisoria', 'curta', 'curta');
+    const alert = await screen.findByRole('alert');
+    expect(alert.textContent).toContain('10 caracteres');
+    expect(calls.some((call) => call.includes('/change-password'))).toBe(false);
+  });
+
+  test('sair sem trocar faz logout e volta ao login', async () => {
+    renderChange(async (input) => {
+      const url = String(input);
+      if (url.includes('/api/auth/logout')) return jsonResponse({ ok: true });
+      return jsonResponse({ user, mustChangePassword: true });
+    });
+    await screen.findByRole('heading', { name: 'KernelDocs' });
+    fireEvent.click(screen.getByRole('button', { name: 'Sair sem trocar' }));
+    expect(await screen.findByText('tela-de-login')).toBeTruthy();
   });
 });

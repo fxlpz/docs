@@ -1,5 +1,6 @@
 import {
   createNodeRequestSchema,
+  moveNodeRequestSchema,
   nodeDetailSchema,
   nodeSummarySchema,
   saveContentRequestSchema,
@@ -18,6 +19,7 @@ import {
   deleteNode,
   getNodeDetail,
   listNodes,
+  moveNode,
   saveContent,
   updateNode,
 } from '../services/nodes.js';
@@ -62,6 +64,16 @@ export async function registerNodeRoutes(app: FastifyInstance, ctx: AppContext):
     const { id } = idParamSchema.parse(request.params);
     const body = updateNodeRequestSchema.parse(request.body);
     const node = updateNode(ctx.db, actorOf(request).id, id, body);
+    return parseOutput(nodeSummarySchema, node, request);
+  });
+
+  app.post('/api/nodes/:id/move', { preHandler: requireAuth }, async (request) => {
+    const { id } = idParamSchema.parse(request.params);
+    const body = moveNodeRequestSchema.parse(request.body);
+    const node = moveNode(ctx.db, actorOf(request).id, id, {
+      parentId: body.parentId ?? null,
+      beforeId: body.beforeId ?? null,
+    });
     return parseOutput(nodeSummarySchema, node, request);
   });
 

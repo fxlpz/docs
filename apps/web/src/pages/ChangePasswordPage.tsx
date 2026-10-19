@@ -2,6 +2,8 @@ import { changePasswordResponseSchema, PASSWORD_MIN_LENGTH } from '@krndocs/shar
 import { type FormEvent, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
+import { BrandMark } from '../components/Brand.js';
+import { ThemeToggle } from '../components/ThemeToggle.js';
 import { ApiError, apiFetch, parseWith } from '../lib/api';
 
 /**
@@ -30,7 +32,7 @@ export function ChangePasswordPage(): React.JSX.Element {
     );
   }
   if (status === 'anon') return <Navigate to="/login" replace />;
-  if (!mustChangePassword) return <Navigate to="/" replace />;
+  if (!mustChangePassword) return <Navigate to="/app" replace />;
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -51,7 +53,7 @@ export function ChangePasswordPage(): React.JSX.Element {
       });
       parseWith(changePasswordResponseSchema, json);
       await refresh();
-      navigate('/', { replace: true });
+      navigate('/app', { replace: true });
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -63,41 +65,37 @@ export function ChangePasswordPage(): React.JSX.Element {
     }
   }
 
-  const fieldClass = 'w-full rounded-md border bg-transparent px-3 py-2 text-sm';
-
   return (
-    <div className="flex min-h-full flex-col items-center justify-center gap-6 p-6">
-      <header className="text-center">
+    <div className="relative flex min-h-full flex-col items-center justify-center gap-6 p-6">
+      <div aria-hidden="true" className="kd-landing-bg" />
+      <div className="absolute top-4 right-4 z-10">
+        <ThemeToggle />
+      </div>
+      <header className="relative text-center">
+        <span className="kd-landing-emblem mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl">
+          <BrandMark size={22} />
+        </span>
         <h1 className="text-2xl font-semibold tracking-tight">KernelDocs</h1>
         <p className="text-sm" style={{ color: 'var(--kd-muted)' }}>
           Primeiro acesso: defina sua senha definitiva
         </p>
       </header>
 
-      <main
-        className="w-full max-w-sm rounded-xl border p-5"
-        style={{ borderColor: 'var(--kd-border)', background: 'var(--kd-surface)' }}
-      >
+      <main className="kd-card w-full max-w-sm p-5">
         <p className="mb-4 text-sm" style={{ color: 'var(--kd-muted)' }}>
           Você entrou com uma senha provisória. Escolha uma senha pessoal com ao menos{' '}
           {PASSWORD_MIN_LENGTH} caracteres para continuar.
         </p>
 
         {error && (
-          <div
-            role="alert"
-            className="mb-4 rounded-md border p-2 text-sm"
-            style={{ borderColor: '#c0392b', color: '#c0392b' }}
-          >
+          <div role="alert" className="kd-alert-error mb-4">
             {error}
           </div>
         )}
 
         <form onSubmit={(event) => void handleSubmit(event)} className="space-y-3">
           <label className="block text-sm">
-            <span className="mb-1 block" style={{ color: 'var(--kd-muted)' }}>
-              Senha provisória (atual)
-            </span>
+            <span className="kd-label">Senha provisória (atual)</span>
             <input
               type="password"
               name="current-password"
@@ -105,15 +103,12 @@ export function ChangePasswordPage(): React.JSX.Element {
               required
               value={currentPassword}
               onChange={(event) => setCurrentPassword(event.target.value)}
-              className={fieldClass}
-              style={{ borderColor: 'var(--kd-border)', color: 'var(--kd-text)' }}
+              className="kd-input"
             />
           </label>
 
           <label className="block text-sm">
-            <span className="mb-1 block" style={{ color: 'var(--kd-muted)' }}>
-              Nova senha
-            </span>
+            <span className="kd-label">Nova senha</span>
             <input
               type="password"
               name="new-password"
@@ -122,15 +117,12 @@ export function ChangePasswordPage(): React.JSX.Element {
               minLength={PASSWORD_MIN_LENGTH}
               value={newPassword}
               onChange={(event) => setNewPassword(event.target.value)}
-              className={fieldClass}
-              style={{ borderColor: 'var(--kd-border)', color: 'var(--kd-text)' }}
+              className="kd-input"
             />
           </label>
 
           <label className="block text-sm">
-            <span className="mb-1 block" style={{ color: 'var(--kd-muted)' }}>
-              Repita a nova senha
-            </span>
+            <span className="kd-label">Repita a nova senha</span>
             <input
               type="password"
               name="confirm-password"
@@ -138,16 +130,14 @@ export function ChangePasswordPage(): React.JSX.Element {
               required
               value={confirm}
               onChange={(event) => setConfirm(event.target.value)}
-              className={fieldClass}
-              style={{ borderColor: 'var(--kd-border)', color: 'var(--kd-text)' }}
+              className="kd-input"
             />
           </label>
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-md px-3 py-2 text-sm font-medium disabled:opacity-60"
-            style={{ background: 'var(--kd-accent)', color: '#ffffff' }}
+            className="kd-btn kd-btn-primary kd-btn-block"
           >
             {submitting ? 'Salvando…' : 'Definir nova senha'}
           </button>
@@ -156,8 +146,7 @@ export function ChangePasswordPage(): React.JSX.Element {
             type="button"
             disabled={submitting}
             onClick={() => void logout().then(() => navigate('/login', { replace: true }))}
-            className="w-full rounded-md border px-3 py-2 text-sm"
-            style={{ borderColor: 'var(--kd-border)', color: 'var(--kd-text)' }}
+            className="kd-btn kd-btn-ghost kd-btn-block"
           >
             Sair sem trocar
           </button>

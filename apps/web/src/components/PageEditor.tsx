@@ -1,12 +1,15 @@
 import type { BlockNoteEditor, PartialBlock } from '@blocknote/core';
 import { BlockNoteView } from '@blocknote/mantine';
-import { useCreateBlockNote, useEditorChange } from '@blocknote/react';
+import { useCreateBlockNote, useEditorChange, useEditorSelectionChange } from '@blocknote/react';
 import type { PageContent, SaveContentResponse } from '@krndocs/shared';
-import { saveContentResponseSchema } from '@krndocs/shared';
+import { nodeDetailSchema, saveContentResponseSchema } from '@krndocs/shared';
 import '@blocknote/core/fonts/inter.css';
 import '@blocknote/mantine/style.css';
+import { Copy } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { ApiError, apiFetch, parseWith } from '../lib/api.js';
+import { copyTextToClipboard } from '../lib/clipboard.js';
+import { codeSchema } from '../lib/editorSchema.js';
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error' | 'conflict';
 
@@ -16,6 +19,13 @@ interface PageEditorProps {
   initialVersion: number;
   /** Recarrega o detalhe da página (usado ao resolver conflito). */
   onReload: () => void;
+  /**
+   * Sobe um arquivo da máquina (aba "Upload" dos blocos de mídia/arquivo).
+   * Devolve a URL pública do anexo. O chamador recarrega a lista de anexos.
+   */
+  uploadFile: (file: File) => Promise<string>;
+  /** Chamado após cada upload concluído (para atualizar a lista de anexos). */
+  onUploadComplete?: () => void;
 }
 
 const AUTOSAVE_DELAY_MS = 1500;
@@ -30,11 +40,53 @@ export function PageEditor({
   initialContent,
   initialVersion,
   onReload,
+  uploadFile,
+  onUploadComplete,
 }: PageEditorProps): React.JSX.Element {
   const editor: BlockNoteEditor = useCreateBlockNote({
+    schema: codeSchema,
     initialContent:
       initialContent && initialContent.length > 0 ? (initialContent as PartialBlock[]) : undefined,
+    uploadFile: async (file: File) => {
+      const url = await uploadFile(file);
+      onUploadComplete?.();
+      return url;
+    },
   });
+
+  // Texto do bloco de código sob o cursor (null fora de código): base do
+  // botão "Copiar código" na barra do editor.
+  const [codeText, setCodeText] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
+  useEditorSelectionChange(() => {
+    try {
+      const { block } = editor.getTextCursorPosition();
+      if (block?.type === 'codeBlock') {
+        const text = block.content
+          .map((inline: unknown) =>
+            typeof inline === 'object' && inline !== null && 'text' in inline
+              ? String((inline as { text: unknown }).text ?? '')
+              : '',
+          )
+          .join('');
+        setCodeText((prev) => (prev === text ? prev : text));
+      } else {
+        setCodeText((prev) => (prev === null ? prev : null));
+      }
+    } catch {
+      setCodeText(null);
+    }
+    setCopied(false);
+  }, editor);
+
+  const copyCode = (): void => {
+    if (codeText === null) return;
+    void (async () => {
+      const ok = await copyTextToClipboard(codeText);
+      setCopied(ok);
+      if (ok) setTimeout(() => setCopied(false), 2000);
+    })();
+  };
 
   const versionRef = useRef(initialVersion);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -59,6 +111,15 @@ export function PageEditor({
         setStatus('saved');
       } catch (error) {
         if (error instanceof ApiError && error.status === 409) {
+          // Conflito real: busca a versão corrente para permitir "manter a
+          // minha" (salvar como nova versão) sem perder a edição local.
+          try {
+            const latest = await apiFetch(`/api/nodes/${nodeId}`);
+            const detail = parseWith(nodeDetailSchema, latest);
+            versionRef.current = detail.version;
+          } catch {
+            // Sem a versão atual, só resta recarregar (onReload).
+          }
           setStatus('conflict');
         } else {
           setStatus('error');
@@ -85,7 +146,9 @@ export function PageEditor({
     saving: 'Salvando…',
     saved: 'Salvo',
     error: 'Erro ao salvar — verifique a conexão e continue editando.',
-    conflict: 'Esta página foi alterada em outra sessão.',
+    conflict:
+      'Esta página foi alterada em outra sessão. Sua edição foi preservada: ' +
+      'salve para mantê-la como nova versão ou recarregue para descartá-la.',
   };
 
   return (
@@ -93,37 +156,59 @@ export function PageEditor({
       <div className="flex items-center justify-between text-xs">
         <span
           role={status === 'error' || status === 'conflict' ? 'alert' : 'status'}
+          className="flex items-center gap-1.5"
           style={{
-            color: status === 'error' || status === 'conflict' ? '#c0392b' : 'var(--kd-muted)',
+            color:
+              status === 'error' || status === 'conflict' ? 'var(--kd-danger)' : 'var(--kd-muted)',
           }}
         >
+          {status === 'saved' && (
+            <span
+              aria-hidden="true"
+              className="inline-block h-1.5 w-1.5 rounded-full"
+              style={{ background: 'var(--kd-accent)' }}
+            />
+          )}
           {statusText[status]}
         </span>
         <span className="flex items-center gap-2">
+          {codeText !== null && (
+            <button
+              type="button"
+              className="kd-btn kd-btn-ghost"
+              onClick={copyCode}
+              title="Copiar o código do bloco sob o cursor"
+            >
+              <Copy size={14} aria-hidden="true" />
+              {copied ? 'Copiado!' : 'Copiar código'}
+            </button>
+          )}
           {status === 'error' && (
             <button
               type="button"
-              className="rounded border px-2 py-1"
-              style={{ borderColor: 'var(--kd-border)' }}
+              className="kd-btn kd-btn-ghost"
               onClick={() => void save('manual')}
             >
               Tentar salvar agora
             </button>
           )}
           {status === 'conflict' && (
-            <button
-              type="button"
-              className="rounded border px-2 py-1"
-              style={{ borderColor: '#c0392b', color: '#c0392b' }}
-              onClick={onReload}
-            >
-              Recarregar página
-            </button>
+            <>
+              <button
+                type="button"
+                className="kd-btn kd-btn-primary"
+                onClick={() => void save('manual')}
+              >
+                Salvar minha versão
+              </button>
+              <button type="button" className="kd-btn kd-btn-danger-ghost" onClick={onReload}>
+                Descartar e recarregar
+              </button>
+            </>
           )}
           <button
             type="button"
-            className="rounded border px-2 py-1"
-            style={{ borderColor: 'var(--kd-border)' }}
+            className="kd-btn kd-btn-ghost"
             onClick={() => void save('manual')}
             disabled={status === 'saving'}
           >
@@ -132,7 +217,7 @@ export function PageEditor({
         </span>
       </div>
 
-      <div className="kd-editor rounded-lg border" style={{ borderColor: 'var(--kd-border)' }}>
+      <div className="kd-editor kd-card !p-0 overflow-hidden">
         <BlockNoteView editor={editor} theme={dark ? 'dark' : 'light'} />
       </div>
     </div>
