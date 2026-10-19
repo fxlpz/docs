@@ -18,6 +18,7 @@ import {
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.js';
+import { useTreeRefresh } from '../components/TreePanel.js';
 import { apiFetch, parseWith } from '../lib/api.js';
 import { formatLongDate, formatRelativeTime, greetingFor } from '../lib/time.js';
 
@@ -55,10 +56,13 @@ function folderPath(
  */
 export function HomePanel(): React.JSX.Element {
   const { displayName, username, role } = useAuth();
+  const { version: treeVersion } = useTreeRefresh();
   const [tree, setTree] = useState<TreeResponse | null>(null);
   const [favorites, setFavorites] = useState<FavoriteItem[] | null>(null);
   const [modelCount, setModelCount] = useState<number | null>(null);
 
+  // A mudança da versão sinaliza que árvore/favoritos/modelos devem ser recarregados.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: treeVersion é gatilho intencional da recarga.
   useEffect(() => {
     let cancelled = false;
     const load = async (): Promise<void> => {
@@ -77,7 +81,7 @@ export function HomePanel(): React.JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [treeVersion]);
 
   const nodes = tree?.nodes ?? [];
   const pages = nodes.filter((node) => node.type === 'page');

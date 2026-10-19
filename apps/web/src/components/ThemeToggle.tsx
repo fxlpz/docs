@@ -18,7 +18,7 @@ export function ThemeToggle({ className = '' }: { className?: string }): React.J
       className={`kd-btn kd-btn-ghost ${className}`}
     >
       {dark ? <Sun size={14} aria-hidden="true" /> : <Moon size={14} aria-hidden="true" />}
-      {dark ? 'Tema claro' : 'Tema escuro'}
+      <span className="hidden sm:inline">{dark ? 'Tema claro' : 'Tema escuro'}</span>
     </button>
   );
 }

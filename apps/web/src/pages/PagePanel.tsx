@@ -40,10 +40,13 @@ export function PagePanel(): React.JSX.Element {
   const fileRef = useRef<HTMLInputElement>(null);
   const [dragging, setDragging] = useState(false);
   const dragDepth = useRef(0);
+  const detailRequest = useRef(0);
+  const extrasRequest = useRef(0);
   const { refresh } = useTreeRefresh();
 
   const load = useCallback(async () => {
     if (!id) return;
+    const request = ++detailRequest.current;
     setDetail(null);
     setError(null);
     setVersions(null);
@@ -51,30 +54,41 @@ export function PagePanel(): React.JSX.Element {
     setNotice(null);
     try {
       const json = await apiFetch(`/api/nodes/${id}`);
-      setDetail(parseWith(nodeDetailSchema, json));
+      const parsed = parseWith(nodeDetailSchema, json);
+      if (request === detailRequest.current) setDetail(parsed);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : 'Não foi possível carregar a página.');
+      if (request === detailRequest.current) {
+        setError(err instanceof ApiError ? err.message : 'Não foi possível carregar a página.');
+      }
     }
   }, [id]);
 
   const loadExtras = useCallback(async () => {
     if (!id) return;
+    const request = ++extrasRequest.current;
     try {
       const [favJson, attachJson] = await Promise.all([
         apiFetch('/api/favorites'),
         apiFetch(`/api/nodes/${id}/attachments`),
       ]);
       const favorites = (favJson as { favorites: Array<{ nodeId: string }> }).favorites;
+      if (request !== extrasRequest.current) return;
       setIsFavorite(favorites.some((favorite) => favorite.nodeId === id));
       setAttachments(parseWith(attachmentListResponseSchema, attachJson).attachments);
       setAttachError(null);
     } catch (err) {
-      setAttachError(err instanceof ApiError ? err.message : 'Falha ao carregar extras.');
+      if (request === extrasRequest.current) {
+        setAttachError(err instanceof ApiError ? err.message : 'Falha ao carregar extras.');
+      }
     }
   }, [id]);
 
   useEffect(() => {
     void load();
+    return () => {
+      detailRequest.current += 1;
+      extrasRequest.current += 1;
+    };
   }, [load]);
 
   useEffect(() => {
@@ -190,12 +204,16 @@ export function PagePanel(): React.JSX.Element {
     }
     setShowHistory(true);
     if (versions !== null) return;
+    const requestedId = detail.id;
     void (async () => {
       try {
-        const json = await apiFetch(`/api/nodes/${detail.id}/versions`);
-        setVersions(parseWith(versionListResponseSchema, json).versions);
+        const json = await apiFetch(`/api/nodes/${requestedId}/versions`);
+        const parsed = parseWith(versionListResponseSchema, json);
+        if (requestedId === id) setVersions(parsed.versions);
       } catch (err) {
-        setError(err instanceof ApiError ? err.message : 'Falha ao carregar histórico.');
+        if (requestedId === id) {
+          setError(err instanceof ApiError ? err.message : 'Falha ao carregar histórico.');
+        }
       }
     })();
   };

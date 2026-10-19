@@ -2,9 +2,13 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { PageEditor } from './PageEditor.js';
 
+const editorMocks = vi.hoisted(() => ({ onChange: undefined as (() => void) | undefined }));
+
 vi.mock('@blocknote/react', () => ({
   useCreateBlockNote: () => ({ document: [] }),
-  useEditorChange: () => {},
+  useEditorChange: (callback: () => void) => {
+    editorMocks.onChange = callback;
+  },
   useEditorSelectionChange: () => {},
 }));
 
@@ -22,6 +26,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 afterEach(() => {
   cleanup();
+  editorMocks.onChange = undefined;
   vi.unstubAllGlobals();
 });
 
@@ -48,6 +53,29 @@ describe('PageEditor (conflito e salvamento)', () => {
     fireEvent.click(screen.getByText('Salvar'));
     expect(await screen.findByText('Salvo')).toBeTruthy();
     expect(calls[0]?.baseVersion).toBe(1);
+  });
+
+  test('desmontar antes do debounce salva a edição pendente', async () => {
+    const fetchMock = vi.fn(async () =>
+      jsonResponse({ version: 2, updatedAt: '2026-10-07T12:00:00.000Z' }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    const { unmount } = render(
+      <PageEditor
+        nodeId="p1"
+        initialContent={[]}
+        initialVersion={1}
+        onReload={() => {}}
+        uploadFile={async () => '/x'}
+      />,
+    );
+    editorMocks.onChange?.();
+    unmount();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(JSON.parse(String(fetchMock.mock.calls[0]?.[1]?.body))).toMatchObject({
+      baseVersion: 1,
+      source: 'autosave',
+    });
   });
 
   test('409 busca a versão corrente e permite salvar a minha', async () => {

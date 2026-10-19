@@ -1,5 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { Link, MemoryRouter, Route, Routes } from 'react-router-dom';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 import { TreeRefreshProvider } from '../components/TreePanel.js';
 import { PagePanel } from './PagePanel.js';
@@ -55,6 +55,7 @@ function renderPage(
   render(
     <MemoryRouter initialEntries={['/p/p1']}>
       <TreeRefreshProvider>
+        <Link to="/p/p2">Abrir outra página</Link>
         <Routes>
           <Route path="/p/:id" element={<PagePanel />} />
         </Routes>
@@ -75,6 +76,27 @@ describe('PagePanel (favoritos, anexos, histórico, modelo)', () => {
     expect(await screen.findByLabelText('Título da página')).toBeTruthy();
     expect(screen.getByLabelText('Adicionar aos favoritos')).toBeTruthy();
     expect(screen.getByText(/Nenhum anexo/)).toBeTruthy();
+  });
+
+  test('ignora uma resposta de detalhe atrasada após navegar para outro ID', async () => {
+    let resolveFirst: ((response: Response) => void) | undefined;
+    const firstResponse = new Promise<Response>((resolve) => {
+      resolveFirst = resolve;
+    });
+    const { calls } = renderPage(async (input) => {
+      const url = String(input);
+      if (url === '/api/nodes/p1') return firstResponse;
+      if (url === '/api/nodes/p2')
+        return jsonResponse({ ...detail, id: 'p2', title: 'Página dois' });
+      if (url.includes('/favorites')) return jsonResponse({ favorites: [] });
+      if (url.includes('/attachments')) return jsonResponse({ attachments: [] });
+      return jsonResponse(detail);
+    });
+    fireEvent.click(screen.getByText('Abrir outra página'));
+    expect(await screen.findByDisplayValue('Página dois')).toBeTruthy();
+    resolveFirst?.(jsonResponse(detail));
+    await waitFor(() => expect(screen.getByDisplayValue('Página dois')).toBeTruthy());
+    expect(calls).toContain('GET /api/nodes/p2');
   });
 
   test('favoritar chama POST e alterna o botão', async () => {

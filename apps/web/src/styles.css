@@ -7,40 +7,42 @@
  * que reagem aos tokens — nada de cores fixas fora daqui e do editor.
  */
 :root {
-  --kd-bg: #f4f6f8;
+  color-scheme: light;
+  --kd-bg: #f3f6f8;
   --kd-surface: #ffffff;
-  --kd-surface-2: #eef1f4;
-  --kd-border: #e0e5ea;
-  --kd-border-strong: #c9d1d9;
-  --kd-text: #131922;
-  --kd-muted: #5d6875;
+  --kd-surface-2: #e9eef1;
+  --kd-border: #d8e0e5;
+  --kd-border-strong: #bdc9d1;
+  --kd-text: #17252d;
+  --kd-muted: #5c6b73;
   --kd-accent: #c2410c;
   --kd-accent-strong: #9a3412;
-  --kd-accent-soft: rgba(194, 65, 12, 0.1);
-  --kd-danger: #b3261e;
-  --kd-danger-soft: rgba(179, 38, 30, 0.08);
-  --kd-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 4px 16px rgba(16, 24, 40, 0.06);
-  --kd-shadow-lg: 0 2px 6px rgba(16, 24, 40, 0.08), 0 12px 32px rgba(16, 24, 40, 0.12);
-  --kd-radius: 0.625rem;
+  --kd-accent-soft: rgba(194, 65, 12, 0.09);
+  --kd-danger: #a9322a;
+  --kd-danger-soft: rgba(169, 50, 42, 0.08);
+  --kd-shadow: 0 1px 2px rgba(23, 37, 45, 0.04);
+  --kd-shadow-lg: 0 8px 24px rgba(23, 37, 45, 0.12);
+  --kd-radius: 0.5rem;
   --kd-ring: rgba(194, 65, 12, 0.35);
 }
 
 .dark {
-  --kd-bg: #0c1016;
-  --kd-surface: #141a23;
-  --kd-surface-2: #1a2230;
-  --kd-border: #232c3a;
-  --kd-border-strong: #33405250;
-  --kd-text: #e8ebf0;
-  --kd-muted: #9aa5b3;
-  --kd-accent: #fb923c;
-  --kd-accent-strong: #f97316;
-  --kd-accent-soft: rgba(251, 146, 60, 0.12);
-  --kd-danger: #e46962;
-  --kd-danger-soft: rgba(228, 105, 98, 0.1);
-  --kd-shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.35);
-  --kd-shadow-lg: 0 2px 8px rgba(0, 0, 0, 0.4), 0 16px 40px rgba(0, 0, 0, 0.45);
-  --kd-ring: rgba(251, 146, 60, 0.4);
+  color-scheme: dark;
+  --kd-bg: #111a20;
+  --kd-surface: #19252d;
+  --kd-surface-2: #22313a;
+  --kd-border: #30414b;
+  --kd-border-strong: #465b66;
+  --kd-text: #e8eef1;
+  --kd-muted: #a4b2b9;
+  --kd-accent: #f28b50;
+  --kd-accent-strong: #ff9b60;
+  --kd-accent-soft: rgba(242, 139, 80, 0.13);
+  --kd-danger: #f08078;
+  --kd-danger-soft: rgba(240, 128, 120, 0.12);
+  --kd-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
+  --kd-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --kd-ring: rgba(242, 139, 80, 0.4);
 }
 
 html,
@@ -311,6 +313,64 @@ body {
 }
 *::-webkit-scrollbar-track {
   background: transparent;
+}
+
+/* ---------- Workspace de documentação ---------- */
+.kd-app-shell {
+  background: var(--kd-bg);
+}
+.kd-app-header {
+  background: var(--kd-surface);
+  box-shadow: 0 1px 0 rgba(23, 37, 45, 0.025);
+}
+.kd-tree-panel {
+  width: 17rem;
+  background: color-mix(in srgb, var(--kd-surface) 92%, var(--kd-bg));
+}
+.kd-mobile-search {
+  border-color: var(--kd-border);
+  background: var(--kd-surface);
+}
+.kd-mobile-search > div {
+  border-color: var(--kd-border);
+  background: var(--kd-bg);
+}
+.kd-app-main {
+  scrollbar-gutter: stable;
+}
+
+@media (max-width: 767px) {
+  .kd-tree-panel {
+    position: absolute;
+    z-index: 30;
+    inset: 0 auto 0 0;
+    width: min(19rem, calc(100vw - 3rem));
+    transform: translateX(-102%);
+    transition: transform 180ms ease-out;
+    box-shadow: none;
+  }
+  .kd-tree-panel-open {
+    transform: translateX(0);
+    box-shadow: var(--kd-shadow-lg);
+  }
+  .kd-tree-backdrop {
+    position: absolute;
+    z-index: 20;
+    inset: 0;
+    background: rgba(11, 22, 28, 0.42);
+    cursor: default;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .kd-tree-panel,
+  .kd-btn,
+  .kd-card-interactive {
+    transition-duration: 0.01ms;
+  }
 }
 
 /* ---------- Árvore lateral ---------- */

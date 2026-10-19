@@ -57,7 +57,7 @@ describe('SearchPage', () => {
     const fetchMock = vi.fn(async () => jsonResponse({ query: '', results: [] }));
     vi.stubGlobal('fetch', fetchMock);
     renderSearch('');
-    expect(await screen.findByText(/caixa de busca/i)).toBeTruthy();
+    expect(await screen.findByLabelText('Buscar na documentação')).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

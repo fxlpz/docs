@@ -1,6 +1,6 @@
 import { searchResponseSchema } from '@krndocs/shared';
 import { FileSearch } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { type FormEvent, useEffect, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { PageHeader } from '../components/PageHeader.js';
 import { ApiError, apiFetch, parseWith } from '../lib/api.js';
@@ -10,8 +10,9 @@ import { ApiError, apiFetch, parseWith } from '../lib/api.js';
  * O snippet é texto puro do índice — renderizado como texto, nunca HTML.
  */
 export function SearchPage(): React.JSX.Element {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const query = params.get('q') ?? '';
+  const [input, setInput] = useState(query);
   const [state, setState] = useState<
     | { kind: 'loading' }
     | { kind: 'error'; message: string }
@@ -19,6 +20,7 @@ export function SearchPage(): React.JSX.Element {
   >({ kind: 'loading' });
 
   useEffect(() => {
+    setInput(query);
     let cancelled = false;
     setState({ kind: 'loading' });
     if (!query.trim()) {
@@ -44,6 +46,12 @@ export function SearchPage(): React.JSX.Element {
     };
   }, [query]);
 
+  function handleSearch(event: FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    const value = input.trim();
+    setParams(value ? { q: value } : {});
+  }
+
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
@@ -55,10 +63,27 @@ export function SearchPage(): React.JSX.Element {
               Resultados para “<span style={{ color: 'var(--kd-text)' }}>{query}</span>”
             </span>
           ) : (
-            'Digite um termo na caixa de busca do cabeçalho.'
+            'Encontre páginas por título ou conteúdo.'
           )
         }
       />
+
+      <form onSubmit={handleSearch} className="mb-5 flex gap-2">
+        <label className="sr-only" htmlFor="kd-search-query">
+          Buscar na documentação
+        </label>
+        <input
+          id="kd-search-query"
+          type="search"
+          value={input}
+          onChange={(event) => setInput(event.target.value)}
+          placeholder="Buscar por título ou conteúdo…"
+          className="kd-input min-w-0 flex-1"
+        />
+        <button type="submit" className="kd-btn kd-btn-primary">
+          Buscar
+        </button>
+      </form>
 
       {state.kind === 'loading' && (
         <p role="status" className="text-sm" style={{ color: 'var(--kd-muted)' }}>

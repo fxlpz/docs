@@ -90,12 +90,34 @@ export function PageEditor({
 
   const versionRef = useRef(initialVersion);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savingRef = useRef(false);
+  const revisionRef = useRef(0);
+  const dirtyRef = useRef(false);
+  const discardOnUnmountRef = useRef(false);
   const [status, setStatus] = useState<SaveStatus>('idle');
-  // Tema no momento da montagem (troca global fica no cabeçalho).
-  const [dark] = useState<boolean>(() => document.documentElement.classList.contains('dark'));
+  const [dark, setDark] = useState<boolean>(() =>
+    document.documentElement.classList.contains('dark'),
+  );
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
 
   const save = useCallback(
     async (source: 'autosave' | 'manual'): Promise<void> => {
+      if (savingRef.current) {
+        return;
+      }
+      savingRef.current = true;
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      const revision = revisionRef.current;
       setStatus('saving');
       try {
         const json = await apiFetch<SaveContentResponse>(`/api/nodes/${nodeId}/content`, {
@@ -108,6 +130,7 @@ export function PageEditor({
         });
         const parsed = parseWith(saveContentResponseSchema, json);
         versionRef.current = parsed.version;
+        if (revisionRef.current === revision) dirtyRef.current = false;
         setStatus('saved');
       } catch (error) {
         if (error instanceof ApiError && error.status === 409) {
@@ -124,21 +147,32 @@ export function PageEditor({
         } else {
           setStatus('error');
         }
+      } finally {
+        savingRef.current = false;
+        if (revisionRef.current !== revision && dirtyRef.current) {
+          timerRef.current = setTimeout(() => void save('autosave'), 0);
+        }
       }
     },
     [nodeId, editor],
   );
 
   useEditorChange(() => {
+    revisionRef.current += 1;
+    dirtyRef.current = true;
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => void save('autosave'), AUTOSAVE_DELAY_MS);
   }, editor);
 
   useEffect(
     () => () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+        if (dirtyRef.current && !discardOnUnmountRef.current) void save('autosave');
+      }
     },
-    [],
+    [save],
   );
 
   const statusText: Record<SaveStatus, string> = {
@@ -201,7 +235,14 @@ export function PageEditor({
               >
                 Salvar minha versão
               </button>
-              <button type="button" className="kd-btn kd-btn-danger-ghost" onClick={onReload}>
+              <button
+                type="button"
+                className="kd-btn kd-btn-danger-ghost"
+                onClick={() => {
+                  discardOnUnmountRef.current = true;
+                  onReload();
+                }}
+              >
                 Descartar e recarregar
               </button>
             </>

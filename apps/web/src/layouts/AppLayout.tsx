@@ -1,6 +1,6 @@
-import { LogOut, Search } from 'lucide-react';
-import { type FormEvent, useState } from 'react';
-import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { LogOut, Menu, Search, X } from 'lucide-react';
+import { type FormEvent, useEffect, useRef, useState } from 'react';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext.js';
 import { BrandMark } from '../components/Brand.js';
 import { ThemeToggle } from '../components/ThemeToggle.js';
@@ -15,7 +15,20 @@ import { RequireAuth } from '../pages/LoginPage.js';
 export function AppLayout(): React.JSX.Element {
   const { userId, displayName, username, role, hasAvatar, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [search, setSearch] = useState('');
+  const [treeOpen, setTreeOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+  const lastPath = useRef(location.pathname);
+
+  // Fecha painéis móveis ao navegar entre páginas, mas preserva mudanças de query.
+  useEffect(() => {
+    const path = location.pathname;
+    if (lastPath.current === path) return;
+    lastPath.current = path;
+    setTreeOpen(false);
+    setMobileSearchOpen(false);
+  }, [location.pathname]);
 
   async function handleLogout(): Promise<void> {
     await logout();
@@ -30,9 +43,9 @@ export function AppLayout(): React.JSX.Element {
   return (
     <RequireAuth>
       <TreeRefreshProvider>
-        <div className="flex h-full flex-col">
+        <div className="kd-app-shell flex h-full flex-col">
           <header
-            className="z-10 flex h-14 shrink-0 items-center justify-between gap-3 border-b px-4 sm:px-5"
+            className="kd-app-header z-20 flex min-h-14 shrink-0 items-center justify-between gap-3 border-b px-3 sm:px-5"
             style={{
               borderColor: 'var(--kd-border)',
               background: 'var(--kd-surface)',
@@ -40,6 +53,20 @@ export function AppLayout(): React.JSX.Element {
             }}
           >
             <div className="flex min-w-0 items-center gap-2">
+              <button
+                type="button"
+                className="kd-btn kd-btn-ghost !px-2 md:hidden"
+                aria-label={treeOpen ? 'Fechar árvore de páginas' : 'Abrir árvore de páginas'}
+                aria-expanded={treeOpen}
+                aria-controls="kd-tree-panel"
+                onClick={() => setTreeOpen((open) => !open)}
+              >
+                {treeOpen ? (
+                  <X size={16} aria-hidden="true" />
+                ) : (
+                  <Menu size={16} aria-hidden="true" />
+                )}
+              </button>
               <Link
                 to="/app"
                 className="flex shrink-0 items-center gap-2 rounded-md px-1 py-0.5 text-sm font-semibold tracking-tight"
@@ -101,7 +128,20 @@ export function AppLayout(): React.JSX.Element {
               )}
             </nav>
 
-            <div className="flex shrink-0 items-center gap-2 text-sm">
+            <div className="flex shrink-0 items-center gap-1.5 text-sm">
+              <button
+                type="button"
+                className="kd-btn kd-btn-ghost !px-2 sm:hidden"
+                aria-label={mobileSearchOpen ? 'Fechar busca' : 'Abrir busca'}
+                aria-expanded={mobileSearchOpen}
+                onClick={() => setMobileSearchOpen((open) => !open)}
+              >
+                {mobileSearchOpen ? (
+                  <X size={15} aria-hidden="true" />
+                ) : (
+                  <Search size={15} aria-hidden="true" />
+                )}
+              </button>
               <button
                 type="button"
                 onClick={() => navigate('/app/perfil')}
@@ -131,15 +171,47 @@ export function AppLayout(): React.JSX.Element {
             </div>
           </header>
 
-          <div className="flex min-h-0 flex-1">
+          {mobileSearchOpen && (
+            <form onSubmit={handleSearch} className="kd-mobile-search border-b p-3 sm:hidden">
+              <label className="sr-only" htmlFor="kd-mobile-search">
+                Buscar na documentação
+              </label>
+              <div className="flex items-center gap-2 rounded-md border px-3 py-2">
+                <Search size={15} aria-hidden="true" style={{ color: 'var(--kd-muted)' }} />
+                <input
+                  id="kd-mobile-search"
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  placeholder="Buscar na documentação…"
+                  className="min-w-0 flex-1 bg-transparent text-base outline-none"
+                  style={{ color: 'var(--kd-text)' }}
+                />
+                <button type="submit" className="kd-btn kd-btn-primary">
+                  Buscar
+                </button>
+              </div>
+            </form>
+          )}
+
+          <div className="relative flex min-h-0 flex-1">
             <aside
-              className="w-64 shrink-0 overflow-y-auto border-r p-3"
+              id="kd-tree-panel"
+              className={`kd-tree-panel shrink-0 overflow-y-auto border-r p-3 ${treeOpen ? 'kd-tree-panel-open' : ''}`}
               style={{ borderColor: 'var(--kd-border)', background: 'var(--kd-surface)' }}
             >
               <TreePanel />
             </aside>
+            {treeOpen && (
+              <button
+                type="button"
+                className="kd-tree-backdrop md:hidden"
+                aria-label="Fechar árvore de páginas"
+                onClick={() => setTreeOpen(false)}
+              />
+            )}
 
-            <main className="min-w-0 flex-1 overflow-y-auto p-6">
+            <main className="kd-app-main min-w-0 flex-1 overflow-y-auto p-4 sm:p-6">
               <Outlet />
             </main>
           </div>
